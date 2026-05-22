@@ -1,28 +1,27 @@
 {
-  "generated_at": "2026-05-22T09:53:46Z",
-  "host": "instance-20260425-1927",
+  "generated_at": "2026-05-22T09:57:16Z",
   "hermes_home": "/home/ubuntu/.hermes",
   "source_path": "/home/ubuntu/.hermes/hermes-agent",
+  "env_key_count": 15,
   "included": [
-    "source snapshot",
+    "source",
     "sanitized config",
-    "SOUL/profile",
+    "persona",
     "skills",
-    "memory_store.db",
-    "kanban.db",
-    "cron definitions",
-    "systemd units",
-    "env key template"
+    "memory",
+    "kanban",
+    "cron",
+    "systemd",
+    "env template"
   ],
   "excluded": [
-    ".env values",
+    "secret values",
     "auth.json",
-    "state.db sessions",
+    "state.db",
     "logs",
     "caches",
     "media",
     "SSH keys",
     "OAuth tokens"
-  ],
-  "env_key_count": 15
+  ]
 }
