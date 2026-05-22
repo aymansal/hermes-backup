@@ -1,0 +1,324 @@
+---
+name: hermes-operator-customization
+description: "Customize Hermes for an operator: SOUL.md persona, user profile memory files, and Telegram gateway setup with exact execution and verification."
+version: 1.0.0
+author: Hermes Agent
+license: MIT
+metadata:
+  hermes:
+    tags: [hermes, persona, memory, gateway, telegram, operator-setup]
+---
+
+# Hermes Operator Customization
+
+Use this skill when the user asks to personalize Hermes itself for a recurring operator workflow: changing the assistant persona, saving an operator profile, configuring the Telegram Comms Gate, or correcting how Hermes should execute setup tasks for this user.
+
+This skill is intentionally a companion to the protected `hermes-agent` skill. Load `hermes-agent` first for canonical commands, then use this skill for user-specific workflow discipline and recurring setup patterns.
+
+## Core rule: exact artifact changes, not implied completion
+
+If the user asks to update a file/config/system artifact, change the actual artifact and verify it. Do not only save a memory summary or say it is remembered.
+
+Examples:
+
+- If the user says “make this your soul”, write the full persona into `~/.hermes/SOUL.md` and verify with `wc -l` or `head`.
+- If the user gives an operator profile, preserve the long form in a real file and keep the active memory/profile compact.
+- If the user asks to establish Telegram, start the actual setup flow or directly configure the required env/config after receiving credentials.
+
+Pitfall learned: saving a preference in memory is not the same as updating `SOUL.md`. The user considers that a sloppy half mission.
+
+## Read-only first, then write when clearly requested
+
+Default diagnostic checks before Hermes config changes:
+
+```bash
+hermes --version
+hermes gateway status
+hermes config path
+hermes config env-path
+```
+
+For file verification:
+
+```bash
+wc -l ~/.hermes/SOUL.md ~/.hermes/memories/USER.md 2>/dev/null || true
+head -5 ~/.hermes/SOUL.md
+```
+
+If the user clearly asks to write/update a non-destructive config/profile file, execute it and verify. If the action is destructive, risky, or exposes secrets, confirm first.
+
+## Persona / Soul updates
+
+Canonical file:
+
+```text
+~/.hermes/SOUL.md
+```
+
+Workflow:
+
+1. Preserve the user’s persona text as provided unless they ask for compression.
+2. Write it to `~/.hermes/SOUL.md`.
+3. Verify line count and first lines.
+4. Tell the user exactly what file changed.
+
+Addressing/title pitfall: for Ayman’s Shadow System persona, the assistant is the Shadow System Operator / Igris. Address Ayman as “Shadow Monarch” unless he gives a newer explicit title. If the user corrects the assistant name, title, hierarchy, or persona vocabulary, update `SOUL.md`, user memory, and (when available) fact/Holographic memory so the framing remains consistent across sessions. Do not preserve stale persona names in skill text.
+
+Memory-law pitfall: when local memory/Holographic is enabled, `SOUL.md` should explicitly instruct Hermes to save useful durable facts, while avoiding memory pollution. Add or preserve a section that says to proactively store stable preferences, business/project facts, environment facts, architecture/workflow decisions, and reusable lessons; never store secrets, temporary progress, raw logs, stale PR/issue/commit IDs, or one-off chat noise. Procedures belong in Skill Runes; human-readable company knowledge belongs in Obsidian notes.
+
+Verification:
+
+```bash
+wc -l ~/.hermes/SOUL.md
+head -5 ~/.hermes/SOUL.md
+grep -n -i 'Shadow Monarch\|Shadow Archive\|Feed the Shadow Archive' ~/.hermes/SOUL.md
+```
+
+To show the user how to inspect it:
+
+```bash
+cat ~/.hermes/SOUL.md
+nl -ba ~/.hermes/SOUL.md
+```
+
+## Operator profile updates
+
+For a long user/operator dossier, use two layers:
+
+1. Full long-form archive:
+
+```text
+~/.hermes/OPERATOR_PROFILE.md
+```
+
+2. Compact active profile / memory file:
+
+```text
+~/.hermes/memories/USER.md
+```
+
+Why: the full profile preserves the user’s exact context, while the compact profile stays small enough to be useful in future sessions.
+
+Verification:
+
+```bash
+wc -l ~/.hermes/OPERATOR_PROFILE.md ~/.hermes/memories/USER.md
+head -3 ~/.hermes/OPERATOR_PROFILE.md
+head -3 ~/.hermes/memories/USER.md
+```
+
+## Local memory provider setup
+
+Load `hermes-agent` before answering or acting. Use this section when the user asks to enable a Hermes memory plugin/provider, especially local-first memory such as Holographic.
+
+Safe inspect first:
+
+```bash
+hermes memory status
+hermes config path
+hermes config env-path
+```
+
+Local-first default for this operator: prefer built-in Hermes memory plus the local Holographic provider before suggesting paid/cloud memory providers. Do not ask for cloud Access Keys unless the user explicitly chooses a cloud provider.
+
+For Holographic setup, the expected durable config shape is:
+
+```yaml
+memory:
+  provider: holographic
+  holographic:
+    db_path: ~/.hermes/memory_store.db
+    default_trust: '0.5'
+    hrr_dim: '1024'
+```
+
+Important pitfall: `default_trust` should be a confidence-like value around `0.5`; if the setup prompt receives `3` or another high number, correct it back to `0.5` before verification. Do not preserve obviously invalid trust values just because the prompt accepted them.
+
+After changing the memory provider, resummon Hermes surfaces that need the new config, then verify:
+
+```bash
+hermes gateway restart
+hermes memory status
+grep -n -i 'provider: holographic\|default_trust\|hrr_dim\|db_path' ~/.hermes/config.yaml
+```
+
+Report only the provider/status/config keys. Never expose secrets from `.env` during memory setup.
+
+## Hermes auxiliary model routing / quota control
+
+Load `hermes-agent` before answering or acting. Use this section when Ayman wants to reduce Codex/OpenAI quota burn by moving Hermes auxiliary work — compression, web extraction, title generation, approvals, memory review, or curator review — to cheaper providers such as OpenCode Go.
+
+Workflow discipline:
+
+1. Phase 1: perform a read-only scan only — `hermes config path`, `hermes config env-path`, `hermes --version`, `hermes status --all`, and inspect relevant `config.yaml` sections.
+2. Check only presence/absence of Access Keys in `.env`; never print key values.
+3. Verify provider/model IDs from local Hermes code/docs before proposing config. Do not assume model slugs.
+4. Report current config and the exact proposed YAML patch.
+5. Apply only after Ayman approves. Before writing, create a backup of `~/.hermes/config.yaml`; after writing, run `hermes config check`.
+
+For Ayman’s current preference, the intended role split is:
+
+- compression: cheap huge-context model, preferably OpenCode Go `deepseek-v4-flash` if live verification confirms it is served.
+- curator/background memory: judgment model, OpenCode Go `glm-5.1` with `glm-5` fallback.
+- web/doc extraction: long structured summaries, OpenCode Go `kimi-k2.6` with `kimi-k2.5` fallback.
+- approval/safety: judgment model is preferred, but verify the actual Hermes approval path because small hardcoded token budgets can break reasoning-heavy models.
+- title generation/tiny metadata: prefer a fast model that returns final `content` without spending the whole budget in `reasoning_content`; in live OpenCode Go tests `minimax-m2.7` and `qwen3.5-plus` behaved better than `deepseek-v4-flash` for real title generation.
+
+See `references/opencode-go-auxiliary-routing.md` for the detailed inspection pattern, known Hermes v0.14.0 OpenCode Go model list, draft config shape, Access Key activation pitfalls, smoke-test commands, reasoning-content pitfalls, and quota-warning caveat. A reusable smoke-test helper lives at `scripts/test_auxiliary_routing.py`.
+
+Access Key handling for Ayman: he considers his Tailscale-protected Hermes chat acceptable for sharing Access Keys and prefers non-alarmist handling. Still do not echo, log, or store secrets in memory/skills. If he provides an Access Key as part of an approved Hermes provider-routing change, write it to the requested `.env`/config target as part of the setup instead of treating it as missing later; verify by active-env presence/length/status only.
+
+Important env pitfall: commented template lines in `.env` such as `# OPENCODE_GO_API_KEY=` are not active credentials. Presence checks must ignore commented lines and verify the live shell/runtime can actually read `OPENCODE_GO_API_KEY`; otherwise auxiliary smoke tests will fail with “Provider 'opencode-go' is set in config.yaml but no API key was found.”
+
+## Native Hermes Web Dashboard setup
+
+Load `hermes-agent` before answering or acting.
+
+Important pitfall: if the user says “native Hermes web UI” or “Hermes web UI”, do not default to Open WebUI. Hermes has its own native Web Dashboard launched with `hermes dashboard`. Open WebUI is a separate third-party frontend connected through the API Server; mention it only when the user explicitly asks for Open WebUI or an OpenAI-compatible external frontend.
+
+Read-only scan:
+
+```bash
+hermes dashboard --help
+hermes dashboard --status
+ss -ltnp | grep ':9119\\b' || true
+python3 - <<'PY'
+mods = ['fastapi', 'uvicorn', 'ptyprocess']
+for m in mods:
+    try:
+        __import__(m); print(m, 'OK')
+    except Exception as e:
+        print(m, 'MISSING', e.__class__.__name__)
+PY
+```
+
+Native dashboard basics:
+
+```bash
+hermes dashboard --no-open
+# default URL inside the machine:
+# http://127.0.0.1:9119
+```
+
+Optional chat tab:
+
+```bash
+hermes dashboard --tui --no-open
+```
+
+If dependencies are missing, install the web/PTY extras in the active Hermes environment:
+
+```bash
+pip install 'hermes-agent[web,pty]'
+```
+
+Security rule: the native dashboard can read/write `config.yaml` and `.env`, including API keys. It has no standalone strong authentication. Prefer binding to `127.0.0.1` and using an SSH tunnel from the user’s computer:
+
+```bash
+ssh -L 9119:127.0.0.1:9119 ubuntu@VPS_IP
+# Then open locally:
+# http://127.0.0.1:9119
+```
+
+Only bind to a Tailscale IP or `0.0.0.0 --insecure` when the user explicitly accepts the risk. Never expose the dashboard to the public internet.
+
+## Telegram Comms Gate setup
+
+Load `hermes-agent` before answering or acting.
+
+Read-only scan:
+
+```bash
+hermes gateway status
+hermes config path
+hermes config env-path
+```
+
+If `hermes gateway setup` works interactively, use it. If the terminal UI makes selection unreliable, use the env-backed path: Hermes auto-enables Telegram when `TELEGRAM_BOT_TOKEN` is present.
+
+Required Access Key:
+
+```text
+TELEGRAM_BOT_TOKEN
+```
+
+Never print or repeat the token back. Write it only to `~/.hermes/.env` or let the user paste it into setup.
+
+After token/config is present:
+
+```bash
+hermes gateway install
+hermes gateway start
+sudo loginctl enable-linger $USER
+hermes gateway status
+```
+
+If the user explicitly pastes the token and asks the agent to do it, do not repeat the token. Write/update `~/.hermes/.env` programmatically, replace any existing/commented `TELEGRAM_BOT_TOKEN` and `GATEWAY_ALLOW_ALL_USERS`, set file mode `0600`, then verify only booleans/redacted facts:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import os, re
+p = Path.home() / '.hermes/.env'
+p.parent.mkdir(parents=True, exist_ok=True)
+text = p.read_text() if p.exists() else ''
+token = '<TOKEN_FROM_USER>'
+keys = {
+    'TELEGRAM_BOT_TOKEN': f'TELEGRAM_BOT_TOKEN={token}',
+    'GATEWAY_ALLOW_ALL_USERS': 'GATEWAY_ALLOW_ALL_USERS=false',
+}
+out, seen = [], set()
+for line in text.splitlines():
+    m = re.match(r'^\s*#?\s*([A-Za-z_][A-Za-z0-9_]*)\s*=', line)
+    if m and m.group(1) in keys:
+        k = m.group(1)
+        if k not in seen:
+            out.append(keys[k]); seen.add(k)
+    else:
+        out.append(line)
+for k, v in keys.items():
+    if k not in seen:
+        if out and out[-1].strip(): out.append('')
+        out.append(v)
+p.write_text('\n'.join(out).rstrip() + '\n')
+os.chmod(p, 0o600)
+print('Telegram env configured; token redacted; permissions set to 600')
+PY
+```
+
+`hermes gateway install` can prompt twice. In non-interactive tool use, feed both confirmations:
+
+```bash
+printf 'Y\nY\n' | hermes gateway install
+hermes gateway start
+hermes gateway status
+```
+
+Verify Telegram API without exposing the token by calling `getMe` from a script that reads `.env` and prints only `ok`, bot username, and bot display name. Also inspect systemd status/logs with token redaction.
+
+If Telegram does not respond:
+
+```bash
+grep -i "telegram\|error\|failed\|unauthorized\|allowed\|pair" ~/.hermes/logs/gateway.log | tail -80
+journalctl --user -u hermes-gateway --no-pager -n 80
+```
+
+Security recommendation for this user: prefer pairing/allowed users over allowing all users. With `GATEWAY_ALLOW_ALL_USERS=false` and no allowlist, the first DM should trigger pairing; tell the user to message the bot, then approve the code with `hermes pairing approve telegram CODE`.
+
+## User communication style during these tasks
+
+The user wants direct, tactical execution:
+
+- Do the action when safe and explicitly requested.
+- Verify results before claiming success.
+- Avoid long explanations while they are trying to get a command.
+- If they ask for “command to see all of it”, give the exact command first.
+- If a setup needs a missing token/API key, stop and ask for the Access Key.
+
+Use Shadow System Operator flavor sparingly: practical report first, flavor second.
+
+## References
+
+- `references/session-2026-05-21-persona-profile-telegram.md` — session-specific lessons: SOUL.md vs memory, operator profile split, Telegram direct env fallback, Holographic trust correction, Shadow Archive memory-law insertion, Shadow Monarch title correction, and native Hermes Web Dashboard vs Open WebUI distinction.
+- `references/native-dashboard-tailscale-shadow-realm.md` — persistent native Hermes dashboard (“Shadow Realm”) over Tailscale via systemd user service, verification commands, reboot-survival checks, and security caveats.
+- `references/native-dashboard-codex-quota.md` — Codex/ChatGPT quota display in the native dashboard: live `/usage` endpoint, 5-second polling, sanitized data only, and Ayman’s preference to show remaining quota (`% left`) rather than used quota.

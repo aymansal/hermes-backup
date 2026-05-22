@@ -1,0 +1,16 @@
+[Unit]
+Description=Hermes Agent Native Web Dashboard
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu
+Environment=HOME=/home/ubuntu
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HERMES_DASHBOARD_TUI=1
+ExecStart=/home/ubuntu/.local/bin/hermes dashboard --host 100.72.70.121 --port 9119 --no-open --insecure --tui
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

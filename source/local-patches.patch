@@ -1,0 +1,1217 @@
+diff --git a/agent/credential_pool.py b/agent/credential_pool.py
+index 9a5cc20fe..0850513f0 100644
+--- a/agent/credential_pool.py
++++ b/agent/credential_pool.py
+@@ -86,7 +86,7 @@ CUSTOM_POOL_PREFIX = "custom:"
+ _EXTRA_KEYS = frozenset({
+     "token_type", "scope", "client_id", "portal_base_url", "obtained_at",
+     "expires_in", "agent_key_id", "agent_key_expires_in", "agent_key_reused",
+-    "agent_key_obtained_at", "tls",
++    "agent_key_obtained_at", "tls", "last_quota", "account_fingerprint",
+ })
+ 
+ 
+@@ -1135,6 +1135,24 @@ class CredentialPool:
+         with self._lock:
+             return self._select_unlocked()
+ 
++    def select_by_id(self, credential_id: str) -> Optional[PooledCredential]:
++        """Select a specific available credential by id, refreshing if needed.
++
++        Used by dashboard account selection for providers where the user wants
++        runtime and quota display pinned to one account.  Returns ``None`` when
++        the requested entry is missing, exhausted, or cannot refresh.
++        """
++        target = str(credential_id or "").strip()
++        if not target:
++            return None
++        with self._lock:
++            available = self._available_entries(clear_expired=True, refresh=True)
++            for entry in available:
++                if entry.id == target:
++                    self._current_id = entry.id
++                    return entry
++            return None
++
+     def _available_entries(self, *, clear_expired: bool = False, refresh: bool = False) -> List[PooledCredential]:
+         """Return entries not currently in exhaustion cooldown.
+ 
+diff --git a/gateway/run.py b/gateway/run.py
+index cca9901cb..be8c8078f 100644
+--- a/gateway/run.py
++++ b/gateway/run.py
+@@ -8549,6 +8549,7 @@ class GatewayRunner:
+                     context_tokens=agent_result.get("last_prompt_tokens", 0) or 0,
+                     context_length=agent_result.get("context_length") or None,
+                     cwd=os.environ.get("TERMINAL_CWD", ""),
++                    credential_id=agent_result.get("credential_id"),
+                 )
+             except Exception as _footer_err:
+                 logger.debug("runtime_footer build failed: %s", _footer_err)
+@@ -16772,6 +16773,14 @@ class GatewayRunner:
+                 _output_toks = getattr(_agent, "session_completion_tokens", 0)
+                 _context_length = getattr(_agent.context_compressor, "context_length", 0) or 0
+             _resolved_model = getattr(_agent, "model", None) if _agent else None
++            _resolved_credential_id = None
++            if _agent and getattr(_agent, "provider", None) == "openai-codex":
++                try:
++                    _pool = getattr(_agent, "_credential_pool", None)
++                    _current_credential = _pool.current() if _pool is not None else None
++                    _resolved_credential_id = getattr(_current_credential, "id", None)
++                except Exception:
++                    _resolved_credential_id = None
+ 
+             if not final_response:
+                 error_msg = f"⚠️ {result['error']}" if result.get("error") else ""
+@@ -16792,6 +16801,7 @@ class GatewayRunner:
+                     "input_tokens": _input_toks,
+                     "output_tokens": _output_toks,
+                     "model": _resolved_model,
++                    "credential_id": _resolved_credential_id,
+                     "context_length": _context_length,
+                 }
+             
+@@ -16952,6 +16962,7 @@ class GatewayRunner:
+                 "input_tokens": _input_toks,
+                 "output_tokens": _output_toks,
+                 "model": _resolved_model,
++                "credential_id": _resolved_credential_id,
+                 "context_length": _context_length,
+                 "session_id": effective_session_id,
+                 "response_previewed": result.get("response_previewed", False),
+diff --git a/gateway/runtime_footer.py b/gateway/runtime_footer.py
+index 9d3fea252..bab170186 100644
+--- a/gateway/runtime_footer.py
++++ b/gateway/runtime_footer.py
+@@ -26,6 +26,7 @@ piecemeal, the footer is sent as a separate trailing message via
+ from __future__ import annotations
+ 
+ import os
++from datetime import datetime, timedelta, timezone
+ from pathlib import Path
+ from typing import Any, Iterable, Optional
+ 
+@@ -54,6 +55,78 @@ def _model_short(model: Optional[str]) -> str:
+     return model.rsplit("/", 1)[-1]
+ 
+ 
++def _parse_quota_reset(value: Any) -> Optional[datetime]:
++    """Parse a quota reset timestamp from unix seconds or ISO text."""
++    if value is None or value == "":
++        return None
++    try:
++        if isinstance(value, (int, float)):
++            return datetime.fromtimestamp(float(value), tz=timezone.utc)
++        text = str(value).strip()
++        if not text:
++            return None
++        if text.endswith("Z"):
++            text = text[:-1] + "+00:00"
++        parsed = datetime.fromisoformat(text)
++        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
++    except Exception:
++        return None
++
++
++def _format_quota_reset(bucket: dict[str, Any]) -> str:
++    """Render reset time/date compactly for a quota bucket."""
++    reset_dt = _parse_quota_reset(bucket.get("reset_at"))
++    if not reset_dt and bucket.get("reset_after_seconds") is not None:
++        try:
++            reset_dt = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(
++                seconds=float(bucket.get("reset_after_seconds") or 0)
++            )
++        except Exception:
++            reset_dt = None
++    if not reset_dt:
++        return ""
++    local_dt = reset_dt.astimezone()
++    local_now = datetime.now(timezone.utc).astimezone(local_dt.tzinfo)
++    if local_dt.date() == local_now.date():
++        return local_dt.strftime("%H:%M")
++    return local_dt.strftime("%a %H:%M")
++
++
++def format_quota_footer(quota: Optional[dict[str, Any]]) -> str:
++    """Render sanitized Codex quota buckets for gateway footers.
++
++    Expected input is the sanitized shape returned by ``agent.codex_quota``:
++    ``{"buckets": [{"label": "5h", "remaining_percent": 83, ...}]}``.
++    Secrets, account ids, and raw provider payloads are never read or rendered.
++    """
++    if not isinstance(quota, dict) or not quota.get("available"):
++        return ""
++    buckets = quota.get("buckets")
++    if not isinstance(buckets, list):
++        return ""
++    parts: list[str] = []
++    for bucket in buckets:
++        if not isinstance(bucket, dict):
++            continue
++        label = str(bucket.get("label") or bucket.get("key") or "quota").strip()
++        remaining = bucket.get("remaining_percent")
++        if remaining is None and bucket.get("used_percent") is not None:
++            try:
++                remaining = max(0, 100 - round(float(bucket.get("used_percent") or 0)))
++            except Exception:
++                remaining = None
++        if remaining is None:
++            continue
++        try:
++            remaining_i = max(0, min(100, round(float(remaining))))
++        except Exception:
++            continue
++        reset = _format_quota_reset(bucket)
++        suffix = f" reset {reset}" if reset else ""
++        parts.append(f"{label} {remaining_i}% left{suffix}")
++    return _SEP.join(parts)
++
++
+ def resolve_footer_config(
+     user_config: dict[str, Any] | None,
+     platform_key: str | None = None,
+@@ -96,6 +169,7 @@ def format_runtime_footer(
+     context_length: Optional[int],
+     cwd: Optional[str] = None,
+     fields: Iterable[str] = _DEFAULT_FIELDS,
++    quota: Optional[dict[str, Any]] = None,
+ ) -> str:
+     """Render the footer line, or return "" if no fields have data.
+ 
+@@ -116,6 +190,10 @@ def format_runtime_footer(
+             rel = _home_relative_cwd(cwd or os.environ.get("TERMINAL_CWD", ""))
+             if rel:
+                 parts.append(rel)
++        elif field == "quota":
++            quota_text = format_quota_footer(quota)
++            if quota_text:
++                parts.append(quota_text)
+         # Unknown field names are silently ignored.
+ 
+     if not parts:
+@@ -131,6 +209,7 @@ def build_footer_line(
+     context_tokens: int,
+     context_length: Optional[int],
+     cwd: Optional[str] = None,
++    credential_id: Optional[str] = None,
+ ) -> str:
+     """Top-level entry point used by gateway/run.py.
+ 
+@@ -141,10 +220,23 @@ def build_footer_line(
+     cfg = resolve_footer_config(user_config, platform_key)
+     if not cfg.get("enabled"):
+         return ""
++    fields = cfg.get("fields") or _DEFAULT_FIELDS
++    quota = None
++    if "quota" in fields:
++        try:
++            from agent.codex_quota import fetch_live_codex_quota
++
++            quota = fetch_live_codex_quota(
++                timeout_seconds=3.0,
++                credential_id=credential_id,
++            )
++        except Exception:
++            quota = None
+     return format_runtime_footer(
+         model=model,
+         context_tokens=context_tokens,
+         context_length=context_length,
+         cwd=cwd,
+-        fields=cfg.get("fields") or _DEFAULT_FIELDS,
++        fields=fields,
++        quota=quota,
+     )
+diff --git a/hermes_cli/runtime_provider.py b/hermes_cli/runtime_provider.py
+index c40316e02..8d83b3ec1 100644
+--- a/hermes_cli/runtime_provider.py
++++ b/hermes_cli/runtime_provider.py
+@@ -1301,7 +1301,21 @@ def resolve_runtime_provider(
+     except Exception:
+         pool = None
+     if pool and pool.has_credentials():
+-        entry = pool.select()
++        selected_credential_id = ""
++        if provider == "openai-codex":
++            selected_credential_id = str(model_cfg.get("credential_id") or "").strip()
++        entry = None
++        if selected_credential_id:
++            entry = pool.select_by_id(selected_credential_id)
++            if entry is None:
++                raise AuthError(
++                    f"Selected OpenAI Codex credential {selected_credential_id!r} is unavailable. Choose another ChatGPT account in the Models screen or clear model.credential_id.",
++                    provider="openai-codex",
++                    code="codex_selected_credential_unavailable",
++                    relogin_required=False,
++                )
++        else:
++            entry = pool.select()
+         pool_api_key = ""
+         if entry is not None:
+             pool_api_key = (
+diff --git a/hermes_cli/web_server.py b/hermes_cli/web_server.py
+index 7d28ce076..fe3bb5351 100644
+--- a/hermes_cli/web_server.py
++++ b/hermes_cli/web_server.py
+@@ -116,6 +116,7 @@ _PUBLIC_API_PATHS: frozenset = frozenset({
+     "/api/config/defaults",
+     "/api/config/schema",
+     "/api/model/info",
++    "/api/model/quota",
+     "/api/dashboard/themes",
+     "/api/dashboard/plugins",
+     "/api/dashboard/plugins/rescan",
+@@ -474,6 +475,10 @@ class ModelAssignment(BaseModel):
+     task: str = ""
+ 
+ 
++class CodexAccountSelection(BaseModel):
++    credential_id: str
++
++
+ _GATEWAY_HEALTH_URL = os.getenv("GATEWAY_HEALTH_URL")
+ try:
+     _GATEWAY_HEALTH_TIMEOUT = float(os.getenv("GATEWAY_HEALTH_TIMEOUT", "3"))
+@@ -1002,6 +1007,210 @@ def get_model_options():
+         raise HTTPException(status_code=500, detail="Failed to list model options")
+ 
+ 
++def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
++    from hermes_cli.auth import read_credential_pool
++
++    entries = read_credential_pool("openai-codex")
++    rows: List[Dict[str, Any]] = []
++    if not isinstance(entries, list):
++        return rows
++    for idx, entry in enumerate(entries, start=1):
++        if not isinstance(entry, dict):
++            continue
++        cid = str(entry.get("id") or "").strip()
++        if not cid:
++            continue
++        rows.append({
++            "id": cid,
++            "index": idx,
++            "label": str(entry.get("label") or f"ChatGPT account {idx}"),
++            "source": str(entry.get("source") or ""),
++            "auth_type": str(entry.get("auth_type") or ""),
++            "priority": entry.get("priority"),
++            "last_status": entry.get("last_status"),
++            "last_error_code": entry.get("last_error_code"),
++            "has_refresh_token": bool(entry.get("refresh_token")),
++            "has_account_fingerprint": bool(entry.get("account_fingerprint")),
++            "selected": bool(selected_id and cid == selected_id),
++        })
++    return rows
++
++
++def _codex_account_fingerprint(access_token: str) -> str:
++    """Return a non-secret stable fingerprint for a Codex OAuth account.
++
++    The raw subject/email claim is never returned or stored. If the access
++    token shape changes and no stable identity claim is available, return an
++    empty string so dashboard login falls back to appending a new account.
++    """
++    try:
++        import base64
++        import hashlib
++
++        parts = str(access_token or "").split(".")
++        if len(parts) < 2:
++            return ""
++        payload = parts[1] + "=" * (-len(parts[1]) % 4)
++        claims = json.loads(base64.urlsafe_b64decode(payload.encode()).decode())
++        for key in ("sub", "https://api.openai.com/auth", "email", "preferred_username"):
++            value = claims.get(key)
++            if isinstance(value, dict):
++                for nested_key in ("user_id", "account_id", "id", "email"):
++                    nested = value.get(nested_key)
++                    if isinstance(nested, str) and nested.strip():
++                        raw = f"{key}:{nested.strip()}"
++                        return "sha256:" + hashlib.sha256(raw.encode()).hexdigest()
++            if isinstance(value, str) and value.strip():
++                raw = f"{key}:{value.strip()}"
++                return "sha256:" + hashlib.sha256(raw.encode()).hexdigest()
++    except Exception:
++        return ""
++    return ""
++
++
++@app.get("/api/model/quota")
++def get_model_quota():
++    """Return sanitized quota for the selected ChatGPT/Codex account."""
++    try:
++        cfg = load_config()
++        model_cfg = cfg.get("model", {}) if isinstance(cfg, dict) else {}
++        if not isinstance(model_cfg, dict):
++            model_cfg = {}
++        active_provider = str(model_cfg.get("provider") or "").strip()
++        active_model = str(model_cfg.get("default") or model_cfg.get("model") or "").strip()
++        selected_id = str(model_cfg.get("credential_id") or "").strip()
++        from agent.codex_quota import fetch_live_codex_quota
++
++        quota = fetch_live_codex_quota(timeout_seconds=8.0, credential_id=selected_id or None)
++        quota["active_provider"] = active_provider
++        quota["active_model"] = active_model
++        quota["is_active"] = active_provider in {"openai-codex", "codex", "openai_codex"}
++        if selected_id:
++            quota.setdefault("selected_credential_id", selected_id)
++        return quota
++    except Exception:
++        _log.exception("GET /api/model/quota failed")
++        return {
++            "provider": "openai-codex",
++            "logged_in": False,
++            "available": False,
++            "is_active": False,
++            "message": "Failed to read ChatGPT quota cache.",
++            "buckets": [],
++        }
++
++
++@app.get("/api/model/codex/accounts")
++def get_codex_accounts():
++    """Return sanitized ChatGPT/Codex credential-pool entries for selection."""
++    try:
++        cfg = load_config()
++        model_cfg = cfg.get("model", {}) if isinstance(cfg, dict) else {}
++        if not isinstance(model_cfg, dict):
++            model_cfg = {}
++        selected_id = str(model_cfg.get("credential_id") or "").strip()
++        accounts = _codex_account_rows(selected_id)
++        if not selected_id and accounts:
++            accounts[0]["selected"] = True
++            selected_id = str(accounts[0].get("id") or "")
++        return {
++            "provider": "openai-codex",
++            "selected_id": selected_id,
++            "accounts": accounts,
++        }
++    except Exception:
++        _log.exception("GET /api/model/codex/accounts failed")
++        raise HTTPException(status_code=500, detail="Failed to list ChatGPT accounts")
++
++
++@app.post("/api/model/codex/accounts/select")
++async def select_codex_account(body: CodexAccountSelection):
++    """Pin OpenAI Codex runtime/quota to one credential-pool account id."""
++    credential_id = str(body.credential_id or "").strip()
++    if not credential_id:
++        raise HTTPException(status_code=400, detail="credential_id required")
++    try:
++        rows = _codex_account_rows(credential_id)
++        if not any(row.get("id") == credential_id for row in rows):
++            raise HTTPException(status_code=404, detail="Unknown OpenAI Codex credential id")
++        cfg = load_config()
++        model_cfg = cfg.get("model", {})
++        if not isinstance(model_cfg, dict):
++            model_cfg = {"default": str(model_cfg or "")}
++        model_cfg["provider"] = "openai-codex"
++        model_cfg["credential_id"] = credential_id
++        cfg["model"] = model_cfg
++        save_config(cfg)
++        accounts = _codex_account_rows(credential_id)
++        return {
++            "ok": True,
++            "provider": "openai-codex",
++            "selected_id": credential_id,
++            "accounts": accounts,
++        }
++    except HTTPException:
++        raise
++    except Exception:
++        _log.exception("POST /api/model/codex/accounts/select failed")
++        raise HTTPException(status_code=500, detail="Failed to select ChatGPT account")
++
++
++@app.delete("/api/model/codex/accounts/{credential_id}")
++async def remove_codex_account(credential_id: str, request: Request):
++    """Remove one ChatGPT/Codex account from the credential pool."""
++    _require_token(request)
++    target = str(credential_id or "").strip()
++    if not target:
++        raise HTTPException(status_code=400, detail="credential_id required")
++    try:
++        from agent.credential_pool import load_pool
++
++        pool = load_pool("openai-codex")
++        index, _entry, error = pool.resolve_target(target)
++        if error or index is None:
++            raise HTTPException(status_code=404, detail=error or "Unknown OpenAI Codex credential id")
++        removed = pool.remove_index(index)
++        if removed is None:
++            raise HTTPException(status_code=404, detail="Unknown OpenAI Codex credential id")
++
++        cfg = load_config()
++        model_cfg = cfg.get("model", {}) if isinstance(cfg, dict) else {}
++        if not isinstance(model_cfg, dict):
++            model_cfg = {"default": str(model_cfg or "")}
++        selected_id = str(model_cfg.get("credential_id") or "").strip()
++        if selected_id == removed.id:
++            remaining = _codex_account_rows("")
++            if remaining:
++                selected_id = str(remaining[0].get("id") or "")
++                model_cfg["provider"] = "openai-codex"
++                model_cfg["credential_id"] = selected_id
++            else:
++                selected_id = ""
++                model_cfg.pop("credential_id", None)
++            cfg["model"] = model_cfg
++            save_config(cfg)
++        else:
++            selected_id = selected_id or ""
++
++        accounts = _codex_account_rows(selected_id)
++        if not selected_id and accounts:
++            accounts[0]["selected"] = True
++            selected_id = str(accounts[0].get("id") or "")
++        _log.info("oauth/codex-account: removed credential=%s", removed.id)
++        return {
++            "ok": True,
++            "provider": "openai-codex",
++            "removed_id": removed.id,
++            "selected_id": selected_id,
++            "accounts": accounts,
++        }
++    except HTTPException:
++        raise
++    except Exception:
++        _log.exception("DELETE /api/model/codex/accounts/%s failed", target)
++        raise HTTPException(status_code=500, detail="Failed to remove ChatGPT account")
++
++
+ @app.get("/api/model/auxiliary")
+ def get_auxiliary_models():
+     """Return current auxiliary task assignments.
+@@ -2237,34 +2446,78 @@ def _codex_full_login_worker(session_id: str) -> None:
+         if not access_token:
+             raise RuntimeError("token exchange did not return access_token")
+ 
+-        # Persist via credential pool — same shape as auth_commands.add_command
++        # Persist via credential pool. Dashboard Codex login is multi-account:
++        # a new ChatGPT identity appends a slot, while logging into the same
++        # identity refreshes that slot without changing its id/label/selection.
+         from agent.credential_pool import (
+             PooledCredential,
+             load_pool,
+             AUTH_TYPE_OAUTH,
+             SOURCE_MANUAL,
+         )
++        from dataclasses import replace as _dc_replace
+         import uuid as _uuid
+         pool = load_pool("openai-codex")
+         base_url = (
+             os.getenv("HERMES_CODEX_BASE_URL", "").strip().rstrip("/")
+             or DEFAULT_CODEX_BASE_URL
+         )
+-        entry = PooledCredential(
+-            provider="openai-codex",
+-            id=_uuid.uuid4().hex[:6],
+-            label="dashboard device_code",
+-            auth_type=AUTH_TYPE_OAUTH,
+-            priority=0,
+-            source=f"{SOURCE_MANUAL}:dashboard_device_code",
+-            access_token=access_token,
+-            refresh_token=refresh_token,
+-            base_url=base_url,
+-        )
+-        pool.add_entry(entry)
++        fingerprint = _codex_account_fingerprint(access_token)
++        existing = None
++        if fingerprint:
++            for candidate in pool.entries():
++                if str(getattr(candidate, "account_fingerprint", "") or "") == fingerprint:
++                    existing = candidate
++                    break
++        if existing is not None:
++            entry = _dc_replace(
++                existing,
++                access_token=access_token,
++                refresh_token=refresh_token or existing.refresh_token,
++                base_url=base_url,
++                last_status=None,
++                last_status_at=None,
++                last_error_code=None,
++                last_error_reason=None,
++                last_error_message=None,
++                last_error_reset_at=None,
++                extra={**(existing.extra or {}), "account_fingerprint": fingerprint},
++            )
++            pool._replace_entry(existing, entry)
++            pool._persist()
++            action = "refreshed"
++        else:
++            entry = PooledCredential(
++                provider="openai-codex",
++                id=_uuid.uuid4().hex[:6],
++                label="dashboard device_code",
++                auth_type=AUTH_TYPE_OAUTH,
++                priority=0,
++                source=f"{SOURCE_MANUAL}:dashboard_device_code",
++                access_token=access_token,
++                refresh_token=refresh_token,
++                base_url=base_url,
++                extra={"account_fingerprint": fingerprint} if fingerprint else {},
++            )
++            entry = pool.add_entry(entry)
++            action = "added"
++        try:
++            cfg = load_config()
++            model_cfg = cfg.get("model", {}) if isinstance(cfg, dict) else {}
++            if not isinstance(model_cfg, dict):
++                model_cfg = {"default": str(model_cfg or "")}
++            if not str(model_cfg.get("credential_id") or "").strip():
++                model_cfg["provider"] = "openai-codex"
++                model_cfg["credential_id"] = entry.id
++                cfg["model"] = model_cfg
++                save_config(cfg)
++        except Exception:
++            _log.debug("codex dashboard login could not set default selected credential", exc_info=True)
+         with _oauth_sessions_lock:
+             sess["status"] = "approved"
+-        _log.info("oauth/device: openai-codex login completed (session=%s)", session_id)
++            sess["credential_id"] = entry.id
++            sess["account_action"] = action
++        _log.info("oauth/device: openai-codex login %s (session=%s, credential=%s)", action, session_id, entry.id)
+     except Exception as e:
+         _log.warning("codex device-code worker failed (session=%s): %s", session_id, e)
+         with _oauth_sessions_lock:
+@@ -3294,15 +3547,24 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
+ 
+ 
+ def _is_public_bind() -> bool:
+-    """True when bound to all-interfaces (operator used --insecure)."""
++    """True when operator allowed non-local dashboard access.
++
++    ``hermes dashboard --insecure`` is required for any non-loopback bind
++    because the dashboard exposes sensitive local controls.  When the
++    operator has made that explicit choice, WebSocket endpoints must follow
++    the same access model as the HTTP dashboard page; otherwise Tailscale/LAN
++    dashboard loads succeed while /api/pty and /api/events are rejected.
++    """
++    if bool(getattr(app.state, "allow_public", False)):
++        return True
+     return getattr(app.state, "bound_host", "") in {"0.0.0.0", "::"}
+ 
+ 
+ def _ws_client_is_allowed(ws: "WebSocket") -> bool:
+     """Check if the WebSocket client IP is acceptable.
+ 
+-    Allows loopback always; allows any IP when bound to all-interfaces
+-    (--insecure mode, guarded by session token auth).
++    Allows loopback always; allows any IP when the operator started the
++    dashboard with --insecure, guarded by the session token auth.
+     """
+     if _is_public_bind():
+         return True
+@@ -4544,6 +4806,7 @@ def start_server(
+     # PTY child uses to publish events to the dashboard sidebar.
+     app.state.bound_host = host
+     app.state.bound_port = port
++    app.state.allow_public = allow_public
+ 
+     if open_browser:
+         import webbrowser
+diff --git a/run_agent.py b/run_agent.py
+index 001d03784..1ebca4753 100644
+--- a/run_agent.py
++++ b/run_agent.py
+@@ -1871,6 +1871,9 @@ class AIAgent:
+             state = parse_rate_limit_headers(headers, provider=self.provider)
+             if state is not None:
+                 self._rate_limit_state = state
++            if getattr(self, "provider", "") == "openai-codex":
++                from agent.codex_quota import save_codex_quota_from_headers
++                save_codex_quota_from_headers(headers)
+         except Exception:
+             pass  # Never let header parsing break the agent loop
+ 
+diff --git a/tests/gateway/test_runtime_footer.py b/tests/gateway/test_runtime_footer.py
+index 9c36706f7..92d9fdffb 100644
+--- a/tests/gateway/test_runtime_footer.py
++++ b/tests/gateway/test_runtime_footer.py
+@@ -147,6 +147,40 @@ def test_format_footer_unknown_field_silently_ignored():
+     assert out == "gpt-5.4 · 50%"
+ 
+ 
++def test_format_footer_quota_field_with_reset_time(monkeypatch):
++    monkeypatch.setenv("TZ", "UTC")
++    time_mod = __import__("time")
++    if hasattr(time_mod, "tzset"):
++        time_mod.tzset()
++    out = format_runtime_footer(
++        model="openai/gpt-5.4",
++        context_tokens=50,
++        context_length=100,
++        cwd="/x",
++        fields=("quota",),
++        quota={
++            "available": True,
++            "buckets": [
++                {"label": "5h", "remaining_percent": 83, "reset_at": 1893499200},
++                {"label": "Weekly", "used_percent": 6, "reset_at": "2030-01-02T12:00:00Z"},
++            ],
++        },
++    )
++    assert out == "5h 83% left reset Tue 12:00 · Weekly 94% left reset Wed 12:00"
++
++
++def test_format_footer_quota_skips_unavailable():
++    out = format_runtime_footer(
++        model="openai/gpt-5.4",
++        context_tokens=50,
++        context_length=100,
++        cwd="/x",
++        fields=("quota",),
++        quota={"available": False, "buckets": []},
++    )
++    assert out == ""
++
++
+ # ---------------------------------------------------------------------------
+ # resolve_footer_config
+ # ---------------------------------------------------------------------------
+@@ -260,3 +294,28 @@ def test_build_footer_no_data_returns_empty_even_when_enabled():
+     # With no TERMINAL_CWD env either
+     if not os.environ.get("TERMINAL_CWD"):
+         assert out == ""
++
++
++def test_build_footer_passes_credential_id_to_quota_fetch(monkeypatch):
++    calls = []
++
++    def fake_fetch(*, timeout_seconds, credential_id=None):
++        calls.append({"timeout_seconds": timeout_seconds, "credential_id": credential_id})
++        return {
++            "available": True,
++            "buckets": [{"label": "5h", "remaining_percent": 34}],
++        }
++
++    monkeypatch.setattr("agent.codex_quota.fetch_live_codex_quota", fake_fetch)
++    out = build_footer_line(
++        user_config={"display": {"runtime_footer": {"enabled": True, "fields": ["quota"]}}},
++        platform_key="telegram",
++        model="openai/gpt-5.4",
++        context_tokens=0,
++        context_length=None,
++        cwd="",
++        credential_id="b415a1",
++    )
++
++    assert out == "5h 34% left"
++    assert calls == [{"timeout_seconds": 3.0, "credential_id": "b415a1"}]
+diff --git a/tools/approval.py b/tools/approval.py
+index bfc70cd0f..e47a27ab0 100644
+--- a/tools/approval.py
++++ b/tools/approval.py
+@@ -893,7 +893,7 @@ Respond with exactly one word: APPROVE, DENY, or ESCALATE"""
+             task="approval",
+             messages=[{"role": "user", "content": prompt}],
+             temperature=0,
+-            max_tokens=16,
++            max_tokens=128,
+         )
+ 
+         answer = (response.choices[0].message.content or "").strip().upper()
+diff --git a/web/src/components/OAuthProvidersCard.tsx b/web/src/components/OAuthProvidersCard.tsx
+index 987f4c0ee..291e1676d 100644
+--- a/web/src/components/OAuthProvidersCard.tsx
++++ b/web/src/components/OAuthProvidersCard.tsx
+@@ -8,7 +8,7 @@ import {
+   Terminal,
+   LogIn,
+ } from "lucide-react";
+-import { api, type OAuthProvider } from "@/lib/api";
++import { api, type OAuthProvider, type CodexAccount } from "@/lib/api";
+ import { Button } from "@nous-research/ui/ui/components/button";
+ import { CopyButton } from "@nous-research/ui/ui/components/command-block";
+ import { Spinner } from "@nous-research/ui/ui/components/spinner";
+@@ -53,11 +53,14 @@ function formatExpiresAt(
+ 
+ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+   const [providers, setProviders] = useState<OAuthProvider[] | null>(null);
++  const [codexAccounts, setCodexAccounts] = useState<CodexAccount[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [busyId, setBusyId] = useState<string | null>(null);
+   const [loginFor, setLoginFor] = useState<OAuthProvider | null>(null);
+   const [disconnectTarget, setDisconnectTarget] =
+     useState<OAuthProvider | null>(null);
++  const [removeCodexTarget, setRemoveCodexTarget] =
++    useState<CodexAccount | null>(null);
+   const { t } = useI18n();
+ 
+   const onErrorRef = useRef(onError);
+@@ -65,9 +68,14 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+ 
+   const refresh = useCallback(() => {
+     setLoading(true);
+-    api
+-      .getOAuthProviders()
+-      .then((resp) => setProviders(resp.providers))
++    Promise.all([
++      api.getOAuthProviders(),
++      api.getCodexAccounts().catch(() => null),
++    ])
++      .then(([resp, codex]) => {
++        setProviders(resp.providers);
++        setCodexAccounts(codex?.accounts ?? []);
++      })
+       .catch((e) => onErrorRef.current?.(`Failed to load providers: ${e}`))
+       .finally(() => setLoading(false));
+   }, []);
+@@ -90,6 +98,21 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+     }
+   };
+ 
++  const handleRemoveCodexAccount = async (account: CodexAccount) => {
++    setBusyId(`openai-codex:${account.id}`);
++    setRemoveCodexTarget(null);
++    try {
++      const resp = await api.removeCodexAccount(account.id);
++      setCodexAccounts(resp.accounts);
++      onSuccess?.(`Removed ChatGPT account ${account.label || account.id}`);
++      refresh();
++    } catch (e) {
++      onError?.(`Remove ChatGPT account failed: ${e}`);
++    } finally {
++      setBusyId(null);
++    }
++  };
++
+   const connectedCount =
+     providers?.filter((p) => p.status.logged_in).length ?? 0;
+   const totalCount = providers?.length ?? 0;
+@@ -138,13 +161,16 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+               t.oauth.expiresIn,
+             );
+             const isBusy = busyId === p.id;
++            const isCodex = p.id === "openai-codex";
++            const codexConnected = isCodex && codexAccounts.length > 0;
++            const isLoggedIn = p.status.logged_in || codexConnected;
+             return (
+               <div
+                 key={p.id}
+                 className="flex items-center justify-between gap-4 py-3"
+               >
+                 <div className="flex items-start gap-3 min-w-0 flex-1">
+-                  {p.status.logged_in ? (
++                  {isLoggedIn ? (
+                     <ShieldCheck className="h-5 w-5 text-success shrink-0 mt-0.5" />
+                   ) : (
+                     <ShieldOff className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+@@ -158,9 +184,9 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+                       >
+                         {t.oauth.flowLabels[p.flow]}
+                       </Badge>
+-                      {p.status.logged_in && (
++                      {isLoggedIn && (
+                         <Badge tone="success" className="text-[11px]">
+-                          {t.oauth.connected}
++                          {isCodex ? `${codexAccounts.length} account${codexAccounts.length === 1 ? "" : "s"}` : t.oauth.connected}
+                         </Badge>
+                       )}
+                       {expiresLabel === "expired" && (
+@@ -200,6 +226,35 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+                         {p.status.error}
+                       </span>
+                     )}
++                    {isCodex && codexAccounts.length > 0 && (
++                      <div className="mt-2 flex flex-col gap-1 rounded border border-border/50 bg-muted/20 p-2">
++                        {codexAccounts.map((account) => {
++                          const accountBusy = busyId === `openai-codex:${account.id}`;
++                          return (
++                            <div
++                              key={account.id}
++                              className="flex min-w-0 items-center justify-between gap-2 text-xs"
++                            >
++                              <div className="min-w-0 truncate font-mono-ui text-muted-foreground">
++                                <span className="text-foreground">{account.label || `ChatGPT account ${account.index}`}</span>
++                                <span className="opacity-50"> · {account.id}</span>
++                                {account.selected && <span className="text-primary"> · selected</span>}
++                                {account.last_status && <span className="text-warning"> · {account.last_status}</span>}
++                              </div>
++                              <Button
++                                size="sm"
++                                outlined
++                                onClick={() => setRemoveCodexTarget(account)}
++                                disabled={accountBusy}
++                                prefix={accountBusy ? <Spinner /> : <LogOut />}
++                              >
++                                Remove
++                              </Button>
++                            </div>
++                          );
++                        })}
++                      </div>
++                    )}
+                   </div>
+                 </div>
+ 
+@@ -217,7 +272,7 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+                       </Button>
+                     </a>
+                   )}
+-                  {!p.status.logged_in && p.flow !== "external" && (
++                  {!isLoggedIn && p.flow !== "external" && (
+                     <Button
+                       size="sm"
+                       onClick={() => setLoginFor(p)}
+@@ -226,14 +281,23 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+                       {t.oauth.login}
+                     </Button>
+                   )}
+-                  {!p.status.logged_in && (
++                  {isCodex && isLoggedIn && p.flow !== "external" && (
++                    <Button
++                      size="sm"
++                      onClick={() => setLoginFor(p)}
++                      prefix={<LogIn />}
++                    >
++                      {codexAccounts.length > 0 ? "Add / refresh account" : t.oauth.login}
++                    </Button>
++                  )}
++                  {!isLoggedIn && (
+                     <CopyButton
+                       text={p.cli_command}
+                       label={t.oauth.cli}
+                       copiedLabel={t.oauth.copied}
+                     />
+                   )}
+-                  {p.status.logged_in && p.flow !== "external" && (
++                  {isLoggedIn && !isCodex && p.flow !== "external" && (
+                     <Button
+                       size="sm"
+                       outlined
+@@ -278,6 +342,17 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+         destructive
+         confirmLabel={t.oauth.disconnect}
+       />
++      <ConfirmDialog
++        open={removeCodexTarget !== null}
++        onCancel={() => setRemoveCodexTarget(null)}
++        onConfirm={() => {
++          if (removeCodexTarget) void handleRemoveCodexAccount(removeCodexTarget);
++        }}
++        title={`Remove ChatGPT account ${removeCodexTarget?.label ?? ""}?`}
++        description="This removes only this Codex/ChatGPT account from the credential pool. Other accounts stay connected."
++        destructive
++        confirmLabel="Remove account"
++      />
+     </Card>
+   );
+ }
+diff --git a/web/src/lib/api.ts b/web/src/lib/api.ts
+index b7e2ba6c5..40138629b 100644
+--- a/web/src/lib/api.ts
++++ b/web/src/lib/api.ts
+@@ -92,6 +92,24 @@ export const api = {
+   getSchema: () => fetchJSON<{ fields: Record<string, unknown>; category_order: string[] }>("/api/config/schema"),
+   getModelInfo: () => fetchJSON<ModelInfoResponse>("/api/model/info"),
+   getModelOptions: () => fetchJSON<ModelOptionsResponse>("/api/model/options"),
++  getModelQuota: () => fetchJSON<ModelQuotaResponse>("/api/model/quota"),
++  getCodexAccounts: () => fetchJSON<CodexAccountsResponse>("/api/model/codex/accounts"),
++  selectCodexAccount: (credential_id: string) =>
++    fetchJSON<CodexAccountsResponse>("/api/model/codex/accounts/select", {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ credential_id }),
++    }),
++  removeCodexAccount: async (credential_id: string) => {
++    const token = await getSessionToken();
++    return fetchJSON<CodexAccountsResponse>(
++      `/api/model/codex/accounts/${encodeURIComponent(credential_id)}`,
++      {
++        method: "DELETE",
++        headers: { [SESSION_HEADER]: token },
++      },
++    );
++  },
+   getAuxiliaryModels: () => fetchJSON<AuxiliaryModelsResponse>("/api/model/auxiliary"),
+   setModelAssignment: (body: ModelAssignmentRequest) =>
+     fetchJSON<ModelAssignmentResponse>("/api/model/set", {
+@@ -649,6 +667,56 @@ export interface AuxiliaryModelsResponse {
+   main: { provider: string; model: string };
+ }
+ 
++export interface ModelQuotaBucket {
++  key: string;
++  label: string;
++  window_minutes?: number | null;
++  used_percent: number;
++  remaining_percent?: number;
++  reset_at?: number | null;
++  reset_after_seconds?: number | null;
++}
++
++export interface ModelQuotaResponse {
++  provider: string;
++  active_provider?: string;
++  active_model?: string;
++  selected_credential_id?: string | null;
++  selected_credential_label?: string | null;
++  logged_in: boolean;
++  available: boolean;
++  is_active?: boolean;
++  source?: string;
++  captured_at?: string;
++  captured_at_unix?: number;
++  plan_type?: string | null;
++  active_limit?: string | null;
++  credits_unlimited?: boolean | null;
++  credits_has_credits?: boolean | null;
++  message?: string;
++  buckets: ModelQuotaBucket[];
++}
++
++export interface CodexAccount {
++  id: string;
++  index: number;
++  label: string;
++  source?: string;
++  auth_type?: string;
++  priority?: number | null;
++  last_status?: string | null;
++  last_error_code?: number | null;
++  has_refresh_token?: boolean;
++  has_account_fingerprint?: boolean;
++  selected?: boolean;
++}
++
++export interface CodexAccountsResponse {
++  provider: string;
++  selected_id?: string;
++  accounts: CodexAccount[];
++}
++
+ export interface ModelAssignmentRequest {
+   scope: "main" | "auxiliary";
+   provider: string;
+diff --git a/web/src/pages/ModelsPage.tsx b/web/src/pages/ModelsPage.tsx
+index 1359cbd9f..8c2634bab 100644
+--- a/web/src/pages/ModelsPage.tsx
++++ b/web/src/pages/ModelsPage.tsx
+@@ -16,6 +16,8 @@ import { api } from "@/lib/api";
+ import type {
+   AuxiliaryModelsResponse,
+   AuxiliaryTaskAssignment,
++  CodexAccountsResponse,
++  ModelQuotaResponse,
+   ModelsAnalyticsModelEntry,
+   ModelsAnalyticsResponse,
+ } from "@/lib/api";
+@@ -65,6 +67,128 @@ function formatCost(n: number): string {
+   return "$0";
+ }
+ 
++function formatQuotaReset(bucket: { label: string; reset_at?: number | null }): string {
++  if (!bucket.reset_at) return "—";
++  const date = new Date(bucket.reset_at * 1000);
++  if (Number.isNaN(date.getTime())) return "—";
++  if (bucket.label.toLowerCase().includes("week")) {
++    return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
++  }
++  return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
++}
++
++function QuotaBar({ pct }: { pct: number }) {
++  const safe = Math.max(0, Math.min(100, Math.round(pct || 0)));
++  return (
++    <div className="flex h-3 w-full min-w-[150px] overflow-hidden bg-muted/60">
++      <div
++        className="bg-primary/80 transition-all duration-300"
++        style={{ width: `${safe}%` }}
++      />
++    </div>
++  );
++}
++
++function ChatGPTQuotaCard({
++  quota,
++  accounts,
++  selectingAccount,
++  onSelectAccount,
++}: {
++  quota: ModelQuotaResponse | null;
++  accounts: CodexAccountsResponse | null;
++  selectingAccount: boolean;
++  onSelectAccount(id: string): void;
++}) {
++  const accountList = accounts?.accounts ?? [];
++  if (!quota?.logged_in && !quota?.available && accountList.length === 0) return null;
++  const buckets = quota?.buckets ?? [];
++  const selectedId = accounts?.selected_id || quota?.selected_credential_id || accountList.find((a) => a.selected)?.id || "";
++  return (
++    <Card className="min-w-0 max-w-full overflow-hidden lg:col-span-2">
++      <CardHeader className="min-w-0 pb-3">
++        <div className="flex min-w-0 flex-wrap items-center gap-2">
++          <Zap className="h-4 w-4 shrink-0 text-primary" />
++          <CardTitle className="text-sm">ChatGPT quota</CardTitle>
++          {quota?.plan_type && (
++            <Badge tone="secondary" className="text-[10px] uppercase">
++              {quota.plan_type}
++            </Badge>
++          )}
++          {quota?.is_active === false && (
++            <span className="text-[10px] text-muted-foreground">
++              cached account · current provider is {quota.active_provider || "unset"}
++            </span>
++          )}
++        </div>
++      </CardHeader>
++      <CardContent className="min-w-0 space-y-3 pt-3">
++        {accountList.length > 0 && (
++          <div className="flex min-w-0 flex-col gap-1 border border-border/40 bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
++            <div className="min-w-0">
++              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ChatGPT account</div>
++              <div className="truncate font-mono text-xs text-muted-foreground">
++                {quota?.selected_credential_label || accountList.find((a) => a.id === selectedId)?.label || "select account"}
++              </div>
++            </div>
++            <div className="relative shrink-0">
++              <select
++                className="h-8 min-w-[220px] appearance-none border border-border bg-background px-3 pr-8 font-mono text-xs text-foreground disabled:opacity-60"
++                value={selectedId}
++                disabled={selectingAccount}
++                onChange={(e) => onSelectAccount(e.target.value)}
++                aria-label="Select ChatGPT account"
++              >
++                {accountList.map((account) => (
++                  <option key={account.id} value={account.id}>
++                    {account.label || `ChatGPT account ${account.index}`} {account.last_status ? `(${account.last_status})` : ""}
++                  </option>
++                ))}
++              </select>
++              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
++            </div>
++          </div>
++        )}
++        {quota?.available && buckets.length > 0 ? (
++          <div className="space-y-2 font-mono text-xs">
++            {buckets.map((bucket) => {
++              const usedPct = Math.max(0, Math.min(100, Math.round(bucket.used_percent || 0)));
++              const remainingPct = Math.max(
++                0,
++                Math.min(100, Math.round(bucket.remaining_percent ?? 100 - usedPct)),
++              );
++              return (
++                <div
++                  key={bucket.key}
++                  className="grid grid-cols-[64px_minmax(0,1fr)_96px_64px] items-center gap-3"
++                >
++                  <span className="text-muted-foreground">{bucket.label}</span>
++                  <QuotaBar pct={remainingPct} />
++                  <span className="text-right tabular-nums" title={`${usedPct}% used`}>
++                    {remainingPct}% left
++                  </span>
++                  <span className="text-right text-muted-foreground tabular-nums" title="Next reset time">
++                    {formatQuotaReset(bucket)}
++                  </span>
++                </div>
++              );
++            })}
++          </div>
++        ) : (
++          <p className="text-xs text-muted-foreground">
++            {quota?.message || "No cached ChatGPT quota yet. Send one OpenAI Codex message to capture quota headers."}
++          </p>
++        )}
++        {quota?.captured_at && (
++          <p className="text-[10px] text-muted-foreground/70">
++            Updated {timeAgo(Date.parse(quota.captured_at) / 1000)} from Codex {quota.source === "usage_endpoint" ? "usage endpoint" : "response headers"}.
++          </p>
++        )}
++      </CardContent>
++    </Card>
++  );
++}
++
+ /** Short model name: strip vendor prefix like "openrouter/" or "anthropic/". */
+ function shortModelName(model: string): string {
+   const slashIdx = model.indexOf("/");
+@@ -768,6 +892,9 @@ export default function ModelsPage() {
+   const [days, setDays] = useState(30);
+   const [data, setData] = useState<ModelsAnalyticsResponse | null>(null);
+   const [aux, setAux] = useState<AuxiliaryModelsResponse | null>(null);
++  const [quota, setQuota] = useState<ModelQuotaResponse | null>(null);
++  const [codexAccounts, setCodexAccounts] = useState<CodexAccountsResponse | null>(null);
++  const [selectingAccount, setSelectingAccount] = useState(false);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState<string | null>(null);
+   const [saveKey, setSaveKey] = useState(0);
+@@ -797,15 +924,40 @@ export default function ModelsPage() {
+     Promise.all([
+       api.getModelsAnalytics(days),
+       api.getAuxiliaryModels().catch(() => null),
++      api.getModelQuota().catch(() => null),
++      api.getCodexAccounts().catch(() => null),
+     ])
+-      .then(([models, auxData]) => {
++      .then(([models, auxData, quotaData, accountData]) => {
+         setData(models);
+         setAux(auxData);
++        setQuota(quotaData);
++        setCodexAccounts(accountData);
+       })
+       .catch((err) => setError(String(err)))
+       .finally(() => setLoading(false));
+   }, [days]);
+ 
++  useEffect(() => {
++    let cancelled = false;
++    const refreshQuota = () => {
++      api
++        .getModelQuota()
++        .then((quotaData) => {
++          if (!cancelled) setQuota(quotaData);
++        })
++        .catch(() => {
++          // Keep the last good quota visible; transient quota fetch failures
++          // are surfaced by the backend payload when a cached fallback exists.
++        });
++    };
++    refreshQuota();
++    const timer = window.setInterval(refreshQuota, 5000);
++    return () => {
++      cancelled = true;
++      window.clearInterval(timer);
++    };
++  }, []);
++
+   const onAssigned = useCallback(() => {
+     // Reload aux state after any assignment change.
+     api
+@@ -815,6 +967,20 @@ export default function ModelsPage() {
+     setSaveKey((k) => k + 1);
+   }, []);
+ 
++  const selectCodexAccount = useCallback((credentialId: string) => {
++    if (!credentialId) return;
++    setSelectingAccount(true);
++    api
++      .selectCodexAccount(credentialId)
++      .then((accountData) => {
++        setCodexAccounts(accountData);
++        return api.getModelQuota();
++      })
++      .then(setQuota)
++      .catch((err) => setError(String(err)))
++      .finally(() => setSelectingAccount(false));
++  }, []);
++
+   useLayoutEffect(() => {
+     const periodLabel =
+       PERIODS.find((p) => p.days === days)?.label ?? `${days}d`;
+@@ -937,6 +1103,13 @@ export default function ModelsPage() {
+             </CardContent>
+           </Card>
+         )}
++
++        <ChatGPTQuotaCard
++          quota={quota}
++          accounts={codexAccounts}
++          selectingAccount={selectingAccount}
++          onSelectAccount={selectCodexAccount}
++        />
+       </div>
+ 
+       {loading && !data && (
