@@ -305,6 +305,32 @@ journalctl --user -u hermes-gateway --no-pager -n 80
 
 Security recommendation for this user: prefer pairing/allowed users over allowing all users. With `GATEWAY_ALLOW_ALL_USERS=false` and no allowlist, the first DM should trigger pairing; tell the user to message the bot, then approve the code with `hermes pairing approve telegram CODE`.
 
+## Hermes private recovery backup vault
+
+Load `hermes-agent` before answering or acting. Use this section when Ayman asks to back up Hermes itself, make the current operator setup portable to another VPS, or keep a private GitHub recovery vault up to date.
+
+Core principle: create a recovery vault, not a raw dump of `~/.hermes`. The vault should resummon Hermes quickly while protecting Access Keys and high-privacy runtime artifacts.
+
+Recommended contents:
+
+- Hermes source snapshot with local patches.
+- Sanitized `config.yaml`.
+- `SOUL.md` and `OPERATOR_PROFILE.md`.
+- Installed Skill Runes.
+- Local memory DB (`memory_store.db`) via SQLite backup API when possible.
+- Durable automation state such as `kanban.db` and cron definitions.
+- Sanitized Hermes systemd user units.
+- `secrets/env.template` with variable names only, never values.
+- README, manifest, restore helper, and deterministic backup refresher script.
+
+Always exclude `.env` values, `auth.json`, OAuth tokens, GitHub tokens, Telegram bot tokens, SSH keys, cookies, private keys, raw logs, caches, media caches, process locks, and `state.db` session transcripts unless the user explicitly requests transcript migration and accepts the privacy risk.
+
+Before committing/pushing a backup, run a leak check against literal current `.env` values and refuse to commit if any value appears in staged text or DB files. Report file paths only, not secret values.
+
+For “always backed up,” prefer a no-agent cron/Raid Timer that runs a deterministic script daily, stays silent when nothing changed, and reports only pushes or errors.
+
+See `references/private-recovery-backup-vault.md` for the full recovery-vault shape, restore path, verification commands, and pitfalls.
+
 ## User communication style during these tasks
 
 The user wants direct, tactical execution:
@@ -322,3 +348,4 @@ Use Shadow System Operator flavor sparingly: practical report first, flavor seco
 - `references/session-2026-05-21-persona-profile-telegram.md` — session-specific lessons: SOUL.md vs memory, operator profile split, Telegram direct env fallback, Holographic trust correction, Shadow Archive memory-law insertion, Shadow Monarch title correction, and native Hermes Web Dashboard vs Open WebUI distinction.
 - `references/native-dashboard-tailscale-shadow-realm.md` — persistent native Hermes dashboard (“Shadow Realm”) over Tailscale via systemd user service, verification commands, reboot-survival checks, and security caveats.
 - `references/native-dashboard-codex-quota.md` — Codex/ChatGPT quota display in the native dashboard: live `/usage` endpoint, 5-second polling, sanitized data only, and Ayman’s preference to show remaining quota (`% left`) rather than used quota.
+- `references/private-recovery-backup-vault.md` — private GitHub recovery vault pattern for backing up Hermes source/config/skills/memory/systemd without committing Access Keys, logs, caches, or session transcripts.

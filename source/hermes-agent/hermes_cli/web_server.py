@@ -23,7 +23,7 @@ import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import yaml
 
@@ -1007,6 +1007,78 @@ def get_model_options():
         raise HTTPException(status_code=500, detail="Failed to list model options")
 
 
+def _sanitize_codex_quota_bucket(bucket: Any) -> Optional[Dict[str, Any]]:
+    """Return one safe quota bucket, dropping unknown/provider fields."""
+    if not isinstance(bucket, dict):
+        return None
+    key = bucket.get("key")
+    label = bucket.get("label")
+    if not isinstance(key, str) or not key.strip():
+        return None
+    if not isinstance(label, str) or not label.strip():
+        label = key
+
+    def _number(value: Any) -> Optional[float]:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return value
+        return None
+
+    def _percent(value: Any, fallback: float = 0) -> int:
+        try:
+            return max(0, min(100, int(round(float(value)))))
+        except (TypeError, ValueError):
+            return max(0, min(100, int(round(fallback))))
+
+    used_percent = _percent(bucket.get("used_percent"), 0)
+    remaining_percent = _percent(bucket.get("remaining_percent"), 100 - used_percent)
+    sanitized: Dict[str, Any] = {
+        "key": key.strip(),
+        "label": label.strip(),
+        "used_percent": used_percent,
+        "remaining_percent": remaining_percent,
+    }
+    for field in ("window_minutes", "reset_at", "reset_after_seconds"):
+        value = _number(bucket.get(field))
+        if value is not None:
+            sanitized[field] = value
+    return sanitized
+
+
+def _sanitize_codex_account_quota(entry: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return sanitized per-account Codex quota cache for dashboard display.
+
+    Credential-pool entries also contain tokens and provider internals. Build a
+    fresh allowlisted shape so no access tokens, refresh tokens, raw payloads,
+    emails, JWT claims, or auth headers can leak through this endpoint.
+    """
+    quota = entry.get("last_quota")
+    if not isinstance(quota, dict):
+        return None
+    raw_buckets = quota.get("buckets")
+    buckets = [
+        sanitized
+        for sanitized in (_sanitize_codex_quota_bucket(bucket) for bucket in raw_buckets)
+        if sanitized is not None
+    ] if isinstance(raw_buckets, list) else []
+
+    sanitized_quota: Dict[str, Any] = {
+        "available": bool(buckets),
+        "buckets": buckets,
+    }
+    for field in ("source", "captured_at", "plan_type", "active_limit", "message"):
+        value = quota.get(field)
+        if isinstance(value, str):
+            sanitized_quota[field] = value
+    captured_at_unix = quota.get("captured_at_unix")
+    if isinstance(captured_at_unix, (int, float)) and not isinstance(captured_at_unix, bool):
+        sanitized_quota["captured_at_unix"] = captured_at_unix
+    for field in ("credits_unlimited", "credits_has_credits"):
+        value = quota.get(field)
+        if isinstance(value, bool):
+            sanitized_quota[field] = value
+    return sanitized_quota
+
+
 def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
     from hermes_cli.auth import read_credential_pool
 
@@ -1023,7 +1095,7 @@ def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
         rows.append({
             "id": cid,
             "index": idx,
-            "label": str(entry.get("label") or f"ChatGPT account {idx}"),
+            "label": str(entry.get("label") or f"Gpt{idx}"),
             "source": str(entry.get("source") or ""),
             "auth_type": str(entry.get("auth_type") or ""),
             "priority": entry.get("priority"),
@@ -1032,6 +1104,7 @@ def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
             "has_refresh_token": bool(entry.get("refresh_token")),
             "has_account_fingerprint": bool(entry.get("account_fingerprint")),
             "selected": bool(selected_id and cid == selected_id),
+            "quota": _sanitize_codex_account_quota(entry),
         })
     return rows
 
@@ -2490,7 +2563,7 @@ def _codex_full_login_worker(session_id: str) -> None:
             entry = PooledCredential(
                 provider="openai-codex",
                 id=_uuid.uuid4().hex[:6],
-                label="dashboard device_code",
+                label=f"Gpt{len(pool.entries()) + 1}",
                 auth_type=AUTH_TYPE_OAUTH,
                 priority=0,
                 source=f"{SOURCE_MANUAL}:dashboard_device_code",

@@ -1873,7 +1873,11 @@ class AIAgent:
                 self._rate_limit_state = state
             if getattr(self, "provider", "") == "openai-codex":
                 from agent.codex_quota import save_codex_quota_from_headers
-                save_codex_quota_from_headers(headers)
+                pool = getattr(self, "_credential_pool", None)
+                credential_id = None
+                if pool is not None:
+                    credential_id = getattr(pool, "current_id", None) or getattr(pool, "_current_id", None)
+                save_codex_quota_from_headers(headers, credential_id=credential_id)
         except Exception:
             pass  # Never let header parsing break the agent loop
 

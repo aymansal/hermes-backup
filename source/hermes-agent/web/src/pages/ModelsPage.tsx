@@ -80,11 +80,41 @@ function formatQuotaReset(bucket: { label: string; reset_at?: number | null }): 
 function QuotaBar({ pct }: { pct: number }) {
   const safe = Math.max(0, Math.min(100, Math.round(pct || 0)));
   return (
-    <div className="flex h-3 w-full min-w-[150px] overflow-hidden bg-muted/60">
+    <div className="flex h-2.5 w-full min-w-[88px] overflow-hidden bg-muted/60">
       <div
         className="bg-primary/80 transition-all duration-300"
         style={{ width: `${safe}%` }}
       />
+    </div>
+  );
+}
+
+function QuotaBuckets({ buckets }: { buckets: ModelQuotaResponse["buckets"] }) {
+  if (buckets.length === 0) return null;
+  return (
+    <div className="space-y-2 font-mono text-xs">
+      {buckets.map((bucket) => {
+        const usedPct = Math.max(0, Math.min(100, Math.round(bucket.used_percent || 0)));
+        const remainingPct = Math.max(
+          0,
+          Math.min(100, Math.round(bucket.remaining_percent ?? 100 - usedPct)),
+        );
+        return (
+          <div
+            key={bucket.key}
+            className="grid grid-cols-[54px_minmax(0,1fr)_82px_56px] items-center gap-2"
+          >
+            <span className="truncate text-muted-foreground">{bucket.label}</span>
+            <QuotaBar pct={remainingPct} />
+            <span className="text-right tabular-nums" title={`${usedPct}% used`}>
+              {remainingPct}% left
+            </span>
+            <span className="text-right text-muted-foreground tabular-nums" title="Next reset time">
+              {formatQuotaReset(bucket)}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -94,94 +124,159 @@ function ChatGPTQuotaCard({
   accounts,
   selectingAccount,
   onSelectAccount,
+  mainModelEntry,
+  mainModelRank,
+  main,
+  aux,
+  onAssigned,
+  showTokens,
 }: {
   quota: ModelQuotaResponse | null;
   accounts: CodexAccountsResponse | null;
   selectingAccount: boolean;
   onSelectAccount(id: string): void;
+  mainModelEntry: ModelsAnalyticsModelEntry | null;
+  mainModelRank: number | null;
+  main: { provider: string; model: string } | null;
+  aux: AuxiliaryTaskAssignment[];
+  onAssigned(): void;
+  showTokens: boolean;
 }) {
   const accountList = accounts?.accounts ?? [];
   if (!quota?.logged_in && !quota?.available && accountList.length === 0) return null;
-  const buckets = quota?.buckets ?? [];
   const selectedId = accounts?.selected_id || quota?.selected_credential_id || accountList.find((a) => a.selected)?.id || "";
   return (
     <Card className="min-w-0 max-w-full overflow-hidden lg:col-span-2">
-      <CardHeader className="min-w-0 pb-3">
+      <CardHeader className="min-w-0 pb-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Zap className="h-4 w-4 shrink-0 text-primary" />
-          <CardTitle className="text-sm">ChatGPT quota</CardTitle>
-          {quota?.plan_type && (
-            <Badge tone="secondary" className="text-[10px] uppercase">
-              {quota.plan_type}
-            </Badge>
-          )}
+          <CardTitle className="text-sm">ChatGPT accounts</CardTitle>
+          {selectingAccount && <Spinner className="text-xs text-primary" />}
           {quota?.is_active === false && (
             <span className="text-[10px] text-muted-foreground">
               cached account · current provider is {quota.active_provider || "unset"}
             </span>
           )}
         </div>
+        <p className="pt-1 text-[10px] text-muted-foreground/80">
+          Click an account card to use it for new dashboard, Telegram, and terminal sessions. Existing live sessions may need /reset or restart.
+        </p>
       </CardHeader>
-      <CardContent className="min-w-0 space-y-3 pt-3">
-        {accountList.length > 0 && (
-          <div className="flex min-w-0 flex-col gap-1 border border-border/40 bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ChatGPT account</div>
-              <div className="truncate font-mono text-xs text-muted-foreground">
-                {quota?.selected_credential_label || accountList.find((a) => a.id === selectedId)?.label || "select account"}
-              </div>
-            </div>
-            <div className="relative shrink-0">
-              <select
-                className="h-8 min-w-[220px] appearance-none border border-border bg-background px-3 pr-8 font-mono text-xs text-foreground disabled:opacity-60"
-                value={selectedId}
-                disabled={selectingAccount}
-                onChange={(e) => onSelectAccount(e.target.value)}
-                aria-label="Select ChatGPT account"
-              >
-                {accountList.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.label || `ChatGPT account ${account.index}`} {account.last_status ? `(${account.last_status})` : ""}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            </div>
-          </div>
-        )}
-        {quota?.available && buckets.length > 0 ? (
-          <div className="space-y-2 font-mono text-xs">
-            {buckets.map((bucket) => {
-              const usedPct = Math.max(0, Math.min(100, Math.round(bucket.used_percent || 0)));
-              const remainingPct = Math.max(
-                0,
-                Math.min(100, Math.round(bucket.remaining_percent ?? 100 - usedPct)),
-              );
+      <CardContent className="min-w-0 space-y-2 pt-2">
+        {accountList.length > 0 ? (
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {accountList.map((account) => {
+              const isSelected = account.id === selectedId || Boolean(account.selected && !selectedId);
+              const effectiveQuota = isSelected && quota?.available ? quota : account.quota;
+              const buckets = effectiveQuota?.buckets ?? [];
+              const label = account.label || `Gpt${account.index}`;
+              const provider = mainModelEntry?.provider || (mainModelEntry ? modelVendor(mainModelEntry.model) : main?.provider || "openai-codex");
+              const caps = mainModelEntry?.capabilities;
+              const mainAuxTask = mainModelEntry
+                ? aux.find((a) => a.provider === provider && a.model === mainModelEntry.model)?.task ?? null
+                : null;
               return (
-                <div
-                  key={bucket.key}
-                  className="grid grid-cols-[64px_minmax(0,1fr)_96px_64px] items-center gap-3"
+                <Card
+                  key={account.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  onClick={() => !isSelected && !selectingAccount && onSelectAccount(account.id)}
+                  onKeyDown={(event) => {
+                    if ((event.key === "Enter" || event.key === " ") && !isSelected && !selectingAccount) {
+                      event.preventDefault();
+                      onSelectAccount(account.id);
+                    }
+                  }}
+                  className={`min-w-0 cursor-pointer border transition-colors hover:border-primary/50 hover:bg-primary/5 ${isSelected ? "border-primary/70 bg-primary/5 ring-1 ring-primary/30" : "border-border/60 bg-muted/10"}`}
                 >
-                  <span className="text-muted-foreground">{bucket.label}</span>
-                  <QuotaBar pct={remainingPct} />
-                  <span className="text-right tabular-nums" title={`${usedPct}% used`}>
-                    {remainingPct}% left
-                  </span>
-                  <span className="text-right text-muted-foreground tabular-nums" title="Next reset time">
-                    {formatQuotaReset(bucket)}
-                  </span>
-                </div>
+                  <CardHeader className="space-y-1 p-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <CardTitle className="truncate text-sm">{label}</CardTitle>
+                        <div className="truncate font-mono text-[10px] text-muted-foreground">{account.id}</div>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                        {isSelected && <Badge tone="success" className="text-[9px]">Selected</Badge>}
+                        {effectiveQuota?.plan_type && <Badge tone="secondary" className="text-[9px] uppercase">{effectiveQuota.plan_type}</Badge>}
+                        {account.last_status && <Badge tone="destructive" className="text-[9px]">{account.last_status}</Badge>}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2 p-2.5 pt-0">
+                    {effectiveQuota?.available && buckets.length > 0 ? (
+                      <QuotaBuckets buckets={buckets} />
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground">
+                        {effectiveQuota?.message || "No cached quota yet."}
+                      </p>
+                    )}
+                    {effectiveQuota?.captured_at && (
+                      <p className="text-[9px] text-muted-foreground/70">
+                        Updated {timeAgo(Date.parse(effectiveQuota.captured_at) / 1000)} from Codex {effectiveQuota.source === "usage_endpoint" ? "usage" : "headers"}.
+                      </p>
+                    )}
+
+                    {isSelected && mainModelEntry && (
+                      <div className="space-y-2 border-t border-border/40 pt-2" onClick={(event) => event.stopPropagation()}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                              {mainModelRank && <span className="font-mono text-[10px] text-muted-foreground/60">#{mainModelRank}</span>}
+                              <span className="truncate font-mono-ui text-sm font-semibold">{shortModelName(mainModelEntry.model)}</span>
+                              <span className="inline-flex items-center gap-0.5 bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-primary">
+                                <Star className="h-2.5 w-2.5" /> main
+                              </span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              {provider && <Badge tone="secondary" className="text-[9px]">{provider}</Badge>}
+                              {caps?.context_window && caps.context_window > 0 && (
+                                <span className="text-[10px] text-muted-foreground">{formatTokenCount(caps.context_window)} ctx</span>
+                              )}
+                              {caps?.max_output_tokens && caps.max_output_tokens > 0 && (
+                                <span className="text-[10px] text-muted-foreground">{formatTokenCount(caps.max_output_tokens)} out</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            {showTokens ? (
+                              <div className="text-right">
+                                <div className="font-mono text-xs font-semibold">
+                                  {formatTokens(mainModelEntry.input_tokens + mainModelEntry.output_tokens)}
+                                </div>
+                                <div className="text-[9px] text-muted-foreground">tokens</div>
+                              </div>
+                            ) : (
+                              mainModelEntry.sessions > 0 && (
+                                <div className="text-right">
+                                  <div className="font-mono text-xs font-semibold">{mainModelEntry.sessions}</div>
+                                  <div className="text-[9px] text-muted-foreground">sessions</div>
+                                </div>
+                              )
+                            )}
+                            <UseAsMenu
+                              provider={provider}
+                              model={mainModelEntry.model}
+                              isMain={true}
+                              mainAuxTask={mainAuxTask}
+                              onAssigned={onAssigned}
+                            />
+                          </div>
+                        </div>
+                        {mainModelEntry.last_used_at > 0 && (
+                          <div className="text-right text-[9px] text-muted-foreground">{timeAgo(mainModelEntry.last_used_at)}</div>
+                        )}
+                        <CapabilityBadges capabilities={mainModelEntry.capabilities} />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            {quota?.message || "No cached ChatGPT quota yet. Send one OpenAI Codex message to capture quota headers."}
-          </p>
-        )}
-        {quota?.captured_at && (
-          <p className="text-[10px] text-muted-foreground/70">
-            Updated {timeAgo(Date.parse(quota.captured_at) / 1000)} from Codex {quota.source === "usage_endpoint" ? "usage endpoint" : "response headers"}.
+            {quota?.message || "No ChatGPT accounts found. Add an OpenAI Codex account from Provider logins."}
           </p>
         )}
       </CardContent>
@@ -974,9 +1069,11 @@ export default function ModelsPage() {
       .selectCodexAccount(credentialId)
       .then((accountData) => {
         setCodexAccounts(accountData);
-        return api.getModelQuota();
+        return api.getModelQuota().catch(() => null);
       })
-      .then(setQuota)
+      .then((quotaData) => {
+        if (quotaData) setQuota(quotaData);
+      })
       .catch((err) => setError(String(err)))
       .finally(() => setSelectingAccount(false));
   }, []);
@@ -1028,6 +1125,21 @@ export default function ModelsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const mainModelEntryIndex = data?.models.findIndex((model) => {
+    const provider = model.provider || modelVendor(model.model);
+    return aux?.main?.provider === provider && aux?.main?.model === model.model;
+  }) ?? -1;
+  const mainModelEntry = mainModelEntryIndex >= 0 && data ? data.models[mainModelEntryIndex] : null;
+  const hideMainCodexModelCard = Boolean(
+    codexAccounts?.accounts?.length &&
+      mainModelEntry &&
+      (mainModelEntry.provider || modelVendor(mainModelEntry.model)) === "openai-codex",
+  );
+  const visibleModelEntries = data?.models.filter((_, index) => {
+    if (!hideMainCodexModelCard) return true;
+    return index !== mainModelEntryIndex;
+  }) ?? [];
 
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-6">
@@ -1109,6 +1221,12 @@ export default function ModelsPage() {
           accounts={codexAccounts}
           selectingAccount={selectingAccount}
           onSelectAccount={selectCodexAccount}
+          mainModelEntry={mainModelEntry}
+          mainModelRank={mainModelEntryIndex >= 0 ? mainModelEntryIndex + 1 : null}
+          main={aux?.main ?? null}
+          aux={aux?.tasks ?? []}
+          onAssigned={onAssigned}
+          showTokens={showTokens}
         />
       </div>
 
@@ -1126,36 +1244,37 @@ export default function ModelsPage() {
         </Card>
       )}
 
-      {data && (
-        <>
-          {data.models.length > 0 ? (
-            <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {data.models.map((m, i) => (
-                <ModelCard
-                  key={`${m.model}:${m.provider}`}
-                  entry={m}
-                  rank={i + 1}
-                  main={aux?.main ?? null}
-                  aux={aux?.tasks ?? []}
-                  onAssigned={onAssigned}
-                  showTokens={showTokens}
-                />
-              ))}
+      {data && visibleModelEntries.length > 0 && (
+        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {visibleModelEntries.map((m) => {
+            const originalRank = data.models.findIndex((entry) => entry === m) + 1;
+            return (
+              <ModelCard
+                key={`${m.model}:${m.provider}`}
+                entry={m}
+                rank={originalRank}
+                main={aux?.main ?? null}
+                aux={aux?.tasks ?? []}
+                onAssigned={onAssigned}
+                showTokens={showTokens}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {data && data.models.length === 0 && (
+        <Card>
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center text-muted-foreground">
+              <Cpu className="h-8 w-8 mb-3 opacity-40" />
+              <p className="text-sm font-medium">{t.models.noModelsData}</p>
+              <p className="text-xs mt-1 text-muted-foreground/60">
+                {t.models.startSession}
+              </p>
             </div>
-          ) : (
-            <Card>
-              <CardContent className="py-12">
-                <div className="flex flex-col items-center text-muted-foreground">
-                  <Cpu className="h-8 w-8 mb-3 opacity-40" />
-                  <p className="text-sm font-medium">{t.models.noModelsData}</p>
-                  <p className="text-xs mt-1 text-muted-foreground/60">
-                    {t.models.startSession}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
+          </CardContent>
+        </Card>
       )}
 
       <PluginSlot name="models:bottom" />

@@ -697,6 +697,19 @@ export interface ModelQuotaResponse {
   buckets: ModelQuotaBucket[];
 }
 
+export interface CodexAccountQuota {
+  available: boolean;
+  source?: string;
+  captured_at?: string;
+  captured_at_unix?: number;
+  plan_type?: string | null;
+  active_limit?: string | null;
+  credits_unlimited?: boolean | null;
+  credits_has_credits?: boolean | null;
+  message?: string;
+  buckets: ModelQuotaBucket[];
+}
+
 export interface CodexAccount {
   id: string;
   index: number;
@@ -709,6 +722,7 @@ export interface CodexAccount {
   has_refresh_token?: boolean;
   has_account_fingerprint?: boolean;
   selected?: boolean;
+  quota?: CodexAccountQuota | null;
 }
 
 export interface CodexAccountsResponse {

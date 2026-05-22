@@ -227,23 +227,46 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
                       </span>
                     )}
                     {isCodex && codexAccounts.length > 0 && (
-                      <div className="mt-2 flex flex-col gap-1 rounded border border-border/50 bg-muted/20 p-2">
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
                         {codexAccounts.map((account) => {
                           const accountBusy = busyId === `openai-codex:${account.id}`;
+                          const buckets = account.quota?.buckets ?? [];
+                          const quotaSummary = buckets
+                            .map((bucket) => {
+                              const usedPct = Math.max(0, Math.min(100, Math.round(bucket.used_percent || 0)));
+                              const remainingPct = Math.max(0, Math.min(100, Math.round(bucket.remaining_percent ?? 100 - usedPct)));
+                              return `${bucket.label}: ${remainingPct}% left`;
+                            })
+                            .join(" · ");
                           return (
                             <div
                               key={account.id}
-                              className="flex min-w-0 items-center justify-between gap-2 text-xs"
+                              className={`min-w-0 rounded border p-2 text-xs ${account.selected ? "border-primary/60 bg-primary/5" : "border-border/50 bg-muted/20"}`}
                             >
-                              <div className="min-w-0 truncate font-mono-ui text-muted-foreground">
-                                <span className="text-foreground">{account.label || `ChatGPT account ${account.index}`}</span>
-                                <span className="opacity-50"> · {account.id}</span>
-                                {account.selected && <span className="text-primary"> · selected</span>}
-                                {account.last_status && <span className="text-warning"> · {account.last_status}</span>}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="truncate font-medium text-foreground">
+                                    {account.label || `ChatGPT account ${account.index}`}
+                                  </div>
+                                  <div className="truncate font-mono-ui text-[10px] text-muted-foreground">
+                                    {account.id}
+                                  </div>
+                                </div>
+                                {account.selected && <Badge tone="success" className="shrink-0 text-[10px]">selected</Badge>}
                               </div>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {account.quota?.plan_type && <Badge tone="secondary" className="text-[10px] uppercase">{account.quota.plan_type}</Badge>}
+                                {account.last_status && <Badge tone="destructive" className="text-[10px]">{account.last_status}</Badge>}
+                              </div>
+                              {quotaSummary && (
+                                <div className="mt-1 truncate font-mono-ui text-[10px] text-muted-foreground" title={quotaSummary}>
+                                  {quotaSummary}
+                                </div>
+                              )}
                               <Button
                                 size="sm"
                                 outlined
+                                className="mt-2"
                                 onClick={() => setRemoveCodexTarget(account)}
                                 disabled={accountBusy}
                                 prefix={accountBusy ? <Spinner /> : <LogOut />}

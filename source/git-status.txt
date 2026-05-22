@@ -1,4 +1,4 @@
-## main...origin/main
+## main...origin/main [behind 47]
  M agent/credential_pool.py
  M gateway/run.py
  M gateway/runtime_footer.py
@@ -11,4 +11,5 @@
  M web/src/lib/api.ts
  M web/src/pages/ModelsPage.tsx
 ?? agent/codex_quota.py
+?? tests/hermes_cli/test_codex_account_selection_dashboard.py
 ?? tools/approval.py.bak.20260521T235258Z.approval-token-fix

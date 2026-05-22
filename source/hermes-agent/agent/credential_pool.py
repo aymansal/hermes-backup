@@ -406,6 +406,16 @@ class CredentialPool:
     def entries(self) -> List[PooledCredential]:
         return list(self._entries)
 
+    @property
+    def current_id(self) -> Optional[str]:
+        """Identifier for the currently selected/leased credential, if any.
+
+        This is non-secret metadata used by runtime telemetry such as Codex
+        quota cache writes to attach provider-reported headers to the account
+        that actually made the request.
+        """
+        return self._current_id
+
     def current(self) -> Optional[PooledCredential]:
         if not self._current_id:
             return None

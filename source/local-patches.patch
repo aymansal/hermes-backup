@@ -1,5 +1,5 @@
 diff --git a/agent/credential_pool.py b/agent/credential_pool.py
-index 9a5cc20fe..0850513f0 100644
+index 9a5cc20fe..58876fa9b 100644
 --- a/agent/credential_pool.py
 +++ b/agent/credential_pool.py
 @@ -86,7 +86,7 @@ CUSTOM_POOL_PREFIX = "custom:"
@@ -11,7 +11,24 @@ index 9a5cc20fe..0850513f0 100644
  })
  
  
-@@ -1135,6 +1135,24 @@ class CredentialPool:
+@@ -406,6 +406,16 @@ class CredentialPool:
+     def entries(self) -> List[PooledCredential]:
+         return list(self._entries)
+ 
++    @property
++    def current_id(self) -> Optional[str]:
++        """Identifier for the currently selected/leased credential, if any.
++
++        This is non-secret metadata used by runtime telemetry such as Codex
++        quota cache writes to attach provider-reported headers to the account
++        that actually made the request.
++        """
++        return self._current_id
++
+     def current(self) -> Optional[PooledCredential]:
+         if not self._current_id:
+             return None
+@@ -1135,6 +1145,24 @@ class CredentialPool:
          with self._lock:
              return self._select_unlocked()
  
@@ -250,9 +267,18 @@ index c40316e02..8d83b3ec1 100644
          if entry is not None:
              pool_api_key = (
 diff --git a/hermes_cli/web_server.py b/hermes_cli/web_server.py
-index 7d28ce076..fe3bb5351 100644
+index 7d28ce076..df8ce2f6b 100644
 --- a/hermes_cli/web_server.py
 +++ b/hermes_cli/web_server.py
+@@ -23,7 +23,7 @@ import time
+ import urllib.parse
+ import urllib.request
+ from pathlib import Path
+-from typing import Any, Dict, List, Optional, Tuple
++from typing import Any, Dict, List, Mapping, Optional, Tuple
+ 
+ import yaml
+ 
 @@ -116,6 +116,7 @@ _PUBLIC_API_PATHS: frozenset = frozenset({
      "/api/config/defaults",
      "/api/config/schema",
@@ -272,10 +298,82 @@ index 7d28ce076..fe3bb5351 100644
  _GATEWAY_HEALTH_URL = os.getenv("GATEWAY_HEALTH_URL")
  try:
      _GATEWAY_HEALTH_TIMEOUT = float(os.getenv("GATEWAY_HEALTH_TIMEOUT", "3"))
-@@ -1002,6 +1007,210 @@ def get_model_options():
+@@ -1002,6 +1007,283 @@ def get_model_options():
          raise HTTPException(status_code=500, detail="Failed to list model options")
  
  
++def _sanitize_codex_quota_bucket(bucket: Any) -> Optional[Dict[str, Any]]:
++    """Return one safe quota bucket, dropping unknown/provider fields."""
++    if not isinstance(bucket, dict):
++        return None
++    key = bucket.get("key")
++    label = bucket.get("label")
++    if not isinstance(key, str) or not key.strip():
++        return None
++    if not isinstance(label, str) or not label.strip():
++        label = key
++
++    def _number(value: Any) -> Optional[float]:
++        if isinstance(value, (int, float)) and not isinstance(value, bool):
++            return value
++        return None
++
++    def _percent(value: Any, fallback: float = 0) -> int:
++        try:
++            return max(0, min(100, int(round(float(value)))))
++        except (TypeError, ValueError):
++            return max(0, min(100, int(round(fallback))))
++
++    used_percent = _percent(bucket.get("used_percent"), 0)
++    remaining_percent = _percent(bucket.get("remaining_percent"), 100 - used_percent)
++    sanitized: Dict[str, Any] = {
++        "key": key.strip(),
++        "label": label.strip(),
++        "used_percent": used_percent,
++        "remaining_percent": remaining_percent,
++    }
++    for field in ("window_minutes", "reset_at", "reset_after_seconds"):
++        value = _number(bucket.get(field))
++        if value is not None:
++            sanitized[field] = value
++    return sanitized
++
++
++def _sanitize_codex_account_quota(entry: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
++    """Return sanitized per-account Codex quota cache for dashboard display.
++
++    Credential-pool entries also contain tokens and provider internals. Build a
++    fresh allowlisted shape so no access tokens, refresh tokens, raw payloads,
++    emails, JWT claims, or auth headers can leak through this endpoint.
++    """
++    quota = entry.get("last_quota")
++    if not isinstance(quota, dict):
++        return None
++    raw_buckets = quota.get("buckets")
++    buckets = [
++        sanitized
++        for sanitized in (_sanitize_codex_quota_bucket(bucket) for bucket in raw_buckets)
++        if sanitized is not None
++    ] if isinstance(raw_buckets, list) else []
++
++    sanitized_quota: Dict[str, Any] = {
++        "available": bool(buckets),
++        "buckets": buckets,
++    }
++    for field in ("source", "captured_at", "plan_type", "active_limit", "message"):
++        value = quota.get(field)
++        if isinstance(value, str):
++            sanitized_quota[field] = value
++    captured_at_unix = quota.get("captured_at_unix")
++    if isinstance(captured_at_unix, (int, float)) and not isinstance(captured_at_unix, bool):
++        sanitized_quota["captured_at_unix"] = captured_at_unix
++    for field in ("credits_unlimited", "credits_has_credits"):
++        value = quota.get(field)
++        if isinstance(value, bool):
++            sanitized_quota[field] = value
++    return sanitized_quota
++
++
 +def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
 +    from hermes_cli.auth import read_credential_pool
 +
@@ -292,7 +390,7 @@ index 7d28ce076..fe3bb5351 100644
 +        rows.append({
 +            "id": cid,
 +            "index": idx,
-+            "label": str(entry.get("label") or f"ChatGPT account {idx}"),
++            "label": str(entry.get("label") or f"Gpt{idx}"),
 +            "source": str(entry.get("source") or ""),
 +            "auth_type": str(entry.get("auth_type") or ""),
 +            "priority": entry.get("priority"),
@@ -301,6 +399,7 @@ index 7d28ce076..fe3bb5351 100644
 +            "has_refresh_token": bool(entry.get("refresh_token")),
 +            "has_account_fingerprint": bool(entry.get("account_fingerprint")),
 +            "selected": bool(selected_id and cid == selected_id),
++            "quota": _sanitize_codex_account_quota(entry),
 +        })
 +    return rows
 +
@@ -483,7 +582,7 @@ index 7d28ce076..fe3bb5351 100644
  @app.get("/api/model/auxiliary")
  def get_auxiliary_models():
      """Return current auxiliary task assignments.
-@@ -2237,34 +2446,78 @@ def _codex_full_login_worker(session_id: str) -> None:
+@@ -2237,34 +2519,78 @@ def _codex_full_login_worker(session_id: str) -> None:
          if not access_token:
              raise RuntimeError("token exchange did not return access_token")
  
@@ -544,7 +643,7 @@ index 7d28ce076..fe3bb5351 100644
 +            entry = PooledCredential(
 +                provider="openai-codex",
 +                id=_uuid.uuid4().hex[:6],
-+                label="dashboard device_code",
++                label=f"Gpt{len(pool.entries()) + 1}",
 +                auth_type=AUTH_TYPE_OAUTH,
 +                priority=0,
 +                source=f"{SOURCE_MANUAL}:dashboard_device_code",
@@ -576,7 +675,7 @@ index 7d28ce076..fe3bb5351 100644
      except Exception as e:
          _log.warning("codex device-code worker failed (session=%s): %s", session_id, e)
          with _oauth_sessions_lock:
-@@ -3294,15 +3547,24 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
+@@ -3294,15 +3620,24 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
  
  
  def _is_public_bind() -> bool:
@@ -604,7 +703,7 @@ index 7d28ce076..fe3bb5351 100644
      """
      if _is_public_bind():
          return True
-@@ -4544,6 +4806,7 @@ def start_server(
+@@ -4544,6 +4879,7 @@ def start_server(
      # PTY child uses to publish events to the dashboard sidebar.
      app.state.bound_host = host
      app.state.bound_port = port
@@ -613,16 +712,20 @@ index 7d28ce076..fe3bb5351 100644
      if open_browser:
          import webbrowser
 diff --git a/run_agent.py b/run_agent.py
-index 001d03784..1ebca4753 100644
+index 001d03784..878f9313b 100644
 --- a/run_agent.py
 +++ b/run_agent.py
-@@ -1871,6 +1871,9 @@ class AIAgent:
+@@ -1871,6 +1871,13 @@ class AIAgent:
              state = parse_rate_limit_headers(headers, provider=self.provider)
              if state is not None:
                  self._rate_limit_state = state
 +            if getattr(self, "provider", "") == "openai-codex":
 +                from agent.codex_quota import save_codex_quota_from_headers
-+                save_codex_quota_from_headers(headers)
++                pool = getattr(self, "_credential_pool", None)
++                credential_id = None
++                if pool is not None:
++                    credential_id = getattr(pool, "current_id", None) or getattr(pool, "_current_id", None)
++                save_codex_quota_from_headers(headers, credential_id=credential_id)
          except Exception:
              pass  # Never let header parsing break the agent loop
  
@@ -714,7 +817,7 @@ index bfc70cd0f..e47a27ab0 100644
  
          answer = (response.choices[0].message.content or "").strip().upper()
 diff --git a/web/src/components/OAuthProvidersCard.tsx b/web/src/components/OAuthProvidersCard.tsx
-index 987f4c0ee..291e1676d 100644
+index 987f4c0ee..20bef1c94 100644
 --- a/web/src/components/OAuthProvidersCard.tsx
 +++ b/web/src/components/OAuthProvidersCard.tsx
 @@ -8,7 +8,7 @@ import {
@@ -811,28 +914,51 @@ index 987f4c0ee..291e1676d 100644
                          </Badge>
                        )}
                        {expiresLabel === "expired" && (
-@@ -200,6 +226,35 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+@@ -200,6 +226,58 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
                          {p.status.error}
                        </span>
                      )}
 +                    {isCodex && codexAccounts.length > 0 && (
-+                      <div className="mt-2 flex flex-col gap-1 rounded border border-border/50 bg-muted/20 p-2">
++                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
 +                        {codexAccounts.map((account) => {
 +                          const accountBusy = busyId === `openai-codex:${account.id}`;
++                          const buckets = account.quota?.buckets ?? [];
++                          const quotaSummary = buckets
++                            .map((bucket) => {
++                              const usedPct = Math.max(0, Math.min(100, Math.round(bucket.used_percent || 0)));
++                              const remainingPct = Math.max(0, Math.min(100, Math.round(bucket.remaining_percent ?? 100 - usedPct)));
++                              return `${bucket.label}: ${remainingPct}% left`;
++                            })
++                            .join(" · ");
 +                          return (
 +                            <div
 +                              key={account.id}
-+                              className="flex min-w-0 items-center justify-between gap-2 text-xs"
++                              className={`min-w-0 rounded border p-2 text-xs ${account.selected ? "border-primary/60 bg-primary/5" : "border-border/50 bg-muted/20"}`}
 +                            >
-+                              <div className="min-w-0 truncate font-mono-ui text-muted-foreground">
-+                                <span className="text-foreground">{account.label || `ChatGPT account ${account.index}`}</span>
-+                                <span className="opacity-50"> · {account.id}</span>
-+                                {account.selected && <span className="text-primary"> · selected</span>}
-+                                {account.last_status && <span className="text-warning"> · {account.last_status}</span>}
++                              <div className="flex items-start justify-between gap-2">
++                                <div className="min-w-0">
++                                  <div className="truncate font-medium text-foreground">
++                                    {account.label || `ChatGPT account ${account.index}`}
++                                  </div>
++                                  <div className="truncate font-mono-ui text-[10px] text-muted-foreground">
++                                    {account.id}
++                                  </div>
++                                </div>
++                                {account.selected && <Badge tone="success" className="shrink-0 text-[10px]">selected</Badge>}
 +                              </div>
++                              <div className="mt-1 flex flex-wrap gap-1">
++                                {account.quota?.plan_type && <Badge tone="secondary" className="text-[10px] uppercase">{account.quota.plan_type}</Badge>}
++                                {account.last_status && <Badge tone="destructive" className="text-[10px]">{account.last_status}</Badge>}
++                              </div>
++                              {quotaSummary && (
++                                <div className="mt-1 truncate font-mono-ui text-[10px] text-muted-foreground" title={quotaSummary}>
++                                  {quotaSummary}
++                                </div>
++                              )}
 +                              <Button
 +                                size="sm"
 +                                outlined
++                                className="mt-2"
 +                                onClick={() => setRemoveCodexTarget(account)}
 +                                disabled={accountBusy}
 +                                prefix={accountBusy ? <Spinner /> : <LogOut />}
@@ -847,7 +973,7 @@ index 987f4c0ee..291e1676d 100644
                    </div>
                  </div>
  
-@@ -217,7 +272,7 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+@@ -217,7 +295,7 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
                        </Button>
                      </a>
                    )}
@@ -856,7 +982,7 @@ index 987f4c0ee..291e1676d 100644
                      <Button
                        size="sm"
                        onClick={() => setLoginFor(p)}
-@@ -226,14 +281,23 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+@@ -226,14 +304,23 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
                        {t.oauth.login}
                      </Button>
                    )}
@@ -882,7 +1008,7 @@ index 987f4c0ee..291e1676d 100644
                      <Button
                        size="sm"
                        outlined
-@@ -278,6 +342,17 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
+@@ -278,6 +365,17 @@ export function OAuthProvidersCard({ onError, onSuccess }: Props) {
          destructive
          confirmLabel={t.oauth.disconnect}
        />
@@ -901,7 +1027,7 @@ index 987f4c0ee..291e1676d 100644
    );
  }
 diff --git a/web/src/lib/api.ts b/web/src/lib/api.ts
-index b7e2ba6c5..40138629b 100644
+index b7e2ba6c5..e58a8cd4b 100644
 --- a/web/src/lib/api.ts
 +++ b/web/src/lib/api.ts
 @@ -92,6 +92,24 @@ export const api = {
@@ -929,7 +1055,7 @@ index b7e2ba6c5..40138629b 100644
    getAuxiliaryModels: () => fetchJSON<AuxiliaryModelsResponse>("/api/model/auxiliary"),
    setModelAssignment: (body: ModelAssignmentRequest) =>
      fetchJSON<ModelAssignmentResponse>("/api/model/set", {
-@@ -649,6 +667,56 @@ export interface AuxiliaryModelsResponse {
+@@ -649,6 +667,70 @@ export interface AuxiliaryModelsResponse {
    main: { provider: string; model: string };
  }
  
@@ -963,6 +1089,19 @@ index b7e2ba6c5..40138629b 100644
 +  buckets: ModelQuotaBucket[];
 +}
 +
++export interface CodexAccountQuota {
++  available: boolean;
++  source?: string;
++  captured_at?: string;
++  captured_at_unix?: number;
++  plan_type?: string | null;
++  active_limit?: string | null;
++  credits_unlimited?: boolean | null;
++  credits_has_credits?: boolean | null;
++  message?: string;
++  buckets: ModelQuotaBucket[];
++}
++
 +export interface CodexAccount {
 +  id: string;
 +  index: number;
@@ -975,6 +1114,7 @@ index b7e2ba6c5..40138629b 100644
 +  has_refresh_token?: boolean;
 +  has_account_fingerprint?: boolean;
 +  selected?: boolean;
++  quota?: CodexAccountQuota | null;
 +}
 +
 +export interface CodexAccountsResponse {
@@ -987,7 +1127,7 @@ index b7e2ba6c5..40138629b 100644
    scope: "main" | "auxiliary";
    provider: string;
 diff --git a/web/src/pages/ModelsPage.tsx b/web/src/pages/ModelsPage.tsx
-index 1359cbd9f..8c2634bab 100644
+index 1359cbd9f..9112d0647 100644
 --- a/web/src/pages/ModelsPage.tsx
 +++ b/web/src/pages/ModelsPage.tsx
 @@ -16,6 +16,8 @@ import { api } from "@/lib/api";
@@ -999,7 +1139,7 @@ index 1359cbd9f..8c2634bab 100644
    ModelsAnalyticsModelEntry,
    ModelsAnalyticsResponse,
  } from "@/lib/api";
-@@ -65,6 +67,128 @@ function formatCost(n: number): string {
+@@ -65,6 +67,223 @@ function formatCost(n: number): string {
    return "$0";
  }
  
@@ -1016,11 +1156,41 @@ index 1359cbd9f..8c2634bab 100644
 +function QuotaBar({ pct }: { pct: number }) {
 +  const safe = Math.max(0, Math.min(100, Math.round(pct || 0)));
 +  return (
-+    <div className="flex h-3 w-full min-w-[150px] overflow-hidden bg-muted/60">
++    <div className="flex h-2.5 w-full min-w-[88px] overflow-hidden bg-muted/60">
 +      <div
 +        className="bg-primary/80 transition-all duration-300"
 +        style={{ width: `${safe}%` }}
 +      />
++    </div>
++  );
++}
++
++function QuotaBuckets({ buckets }: { buckets: ModelQuotaResponse["buckets"] }) {
++  if (buckets.length === 0) return null;
++  return (
++    <div className="space-y-2 font-mono text-xs">
++      {buckets.map((bucket) => {
++        const usedPct = Math.max(0, Math.min(100, Math.round(bucket.used_percent || 0)));
++        const remainingPct = Math.max(
++          0,
++          Math.min(100, Math.round(bucket.remaining_percent ?? 100 - usedPct)),
++        );
++        return (
++          <div
++            key={bucket.key}
++            className="grid grid-cols-[54px_minmax(0,1fr)_82px_56px] items-center gap-2"
++          >
++            <span className="truncate text-muted-foreground">{bucket.label}</span>
++            <QuotaBar pct={remainingPct} />
++            <span className="text-right tabular-nums" title={`${usedPct}% used`}>
++              {remainingPct}% left
++            </span>
++            <span className="text-right text-muted-foreground tabular-nums" title="Next reset time">
++              {formatQuotaReset(bucket)}
++            </span>
++          </div>
++        );
++      })}
 +    </div>
 +  );
 +}
@@ -1030,94 +1200,159 @@ index 1359cbd9f..8c2634bab 100644
 +  accounts,
 +  selectingAccount,
 +  onSelectAccount,
++  mainModelEntry,
++  mainModelRank,
++  main,
++  aux,
++  onAssigned,
++  showTokens,
 +}: {
 +  quota: ModelQuotaResponse | null;
 +  accounts: CodexAccountsResponse | null;
 +  selectingAccount: boolean;
 +  onSelectAccount(id: string): void;
++  mainModelEntry: ModelsAnalyticsModelEntry | null;
++  mainModelRank: number | null;
++  main: { provider: string; model: string } | null;
++  aux: AuxiliaryTaskAssignment[];
++  onAssigned(): void;
++  showTokens: boolean;
 +}) {
 +  const accountList = accounts?.accounts ?? [];
 +  if (!quota?.logged_in && !quota?.available && accountList.length === 0) return null;
-+  const buckets = quota?.buckets ?? [];
 +  const selectedId = accounts?.selected_id || quota?.selected_credential_id || accountList.find((a) => a.selected)?.id || "";
 +  return (
 +    <Card className="min-w-0 max-w-full overflow-hidden lg:col-span-2">
-+      <CardHeader className="min-w-0 pb-3">
++      <CardHeader className="min-w-0 pb-2">
 +        <div className="flex min-w-0 flex-wrap items-center gap-2">
 +          <Zap className="h-4 w-4 shrink-0 text-primary" />
-+          <CardTitle className="text-sm">ChatGPT quota</CardTitle>
-+          {quota?.plan_type && (
-+            <Badge tone="secondary" className="text-[10px] uppercase">
-+              {quota.plan_type}
-+            </Badge>
-+          )}
++          <CardTitle className="text-sm">ChatGPT accounts</CardTitle>
++          {selectingAccount && <Spinner className="text-xs text-primary" />}
 +          {quota?.is_active === false && (
 +            <span className="text-[10px] text-muted-foreground">
 +              cached account · current provider is {quota.active_provider || "unset"}
 +            </span>
 +          )}
 +        </div>
++        <p className="pt-1 text-[10px] text-muted-foreground/80">
++          Click an account card to use it for new dashboard, Telegram, and terminal sessions. Existing live sessions may need /reset or restart.
++        </p>
 +      </CardHeader>
-+      <CardContent className="min-w-0 space-y-3 pt-3">
-+        {accountList.length > 0 && (
-+          <div className="flex min-w-0 flex-col gap-1 border border-border/40 bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-+            <div className="min-w-0">
-+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ChatGPT account</div>
-+              <div className="truncate font-mono text-xs text-muted-foreground">
-+                {quota?.selected_credential_label || accountList.find((a) => a.id === selectedId)?.label || "select account"}
-+              </div>
-+            </div>
-+            <div className="relative shrink-0">
-+              <select
-+                className="h-8 min-w-[220px] appearance-none border border-border bg-background px-3 pr-8 font-mono text-xs text-foreground disabled:opacity-60"
-+                value={selectedId}
-+                disabled={selectingAccount}
-+                onChange={(e) => onSelectAccount(e.target.value)}
-+                aria-label="Select ChatGPT account"
-+              >
-+                {accountList.map((account) => (
-+                  <option key={account.id} value={account.id}>
-+                    {account.label || `ChatGPT account ${account.index}`} {account.last_status ? `(${account.last_status})` : ""}
-+                  </option>
-+                ))}
-+              </select>
-+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-+            </div>
-+          </div>
-+        )}
-+        {quota?.available && buckets.length > 0 ? (
-+          <div className="space-y-2 font-mono text-xs">
-+            {buckets.map((bucket) => {
-+              const usedPct = Math.max(0, Math.min(100, Math.round(bucket.used_percent || 0)));
-+              const remainingPct = Math.max(
-+                0,
-+                Math.min(100, Math.round(bucket.remaining_percent ?? 100 - usedPct)),
-+              );
++      <CardContent className="min-w-0 space-y-2 pt-2">
++        {accountList.length > 0 ? (
++          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
++            {accountList.map((account) => {
++              const isSelected = account.id === selectedId || Boolean(account.selected && !selectedId);
++              const effectiveQuota = isSelected && quota?.available ? quota : account.quota;
++              const buckets = effectiveQuota?.buckets ?? [];
++              const label = account.label || `Gpt${account.index}`;
++              const provider = mainModelEntry?.provider || (mainModelEntry ? modelVendor(mainModelEntry.model) : main?.provider || "openai-codex");
++              const caps = mainModelEntry?.capabilities;
++              const mainAuxTask = mainModelEntry
++                ? aux.find((a) => a.provider === provider && a.model === mainModelEntry.model)?.task ?? null
++                : null;
 +              return (
-+                <div
-+                  key={bucket.key}
-+                  className="grid grid-cols-[64px_minmax(0,1fr)_96px_64px] items-center gap-3"
++                <Card
++                  key={account.id}
++                  role="button"
++                  tabIndex={0}
++                  aria-pressed={isSelected}
++                  onClick={() => !isSelected && !selectingAccount && onSelectAccount(account.id)}
++                  onKeyDown={(event) => {
++                    if ((event.key === "Enter" || event.key === " ") && !isSelected && !selectingAccount) {
++                      event.preventDefault();
++                      onSelectAccount(account.id);
++                    }
++                  }}
++                  className={`min-w-0 cursor-pointer border transition-colors hover:border-primary/50 hover:bg-primary/5 ${isSelected ? "border-primary/70 bg-primary/5 ring-1 ring-primary/30" : "border-border/60 bg-muted/10"}`}
 +                >
-+                  <span className="text-muted-foreground">{bucket.label}</span>
-+                  <QuotaBar pct={remainingPct} />
-+                  <span className="text-right tabular-nums" title={`${usedPct}% used`}>
-+                    {remainingPct}% left
-+                  </span>
-+                  <span className="text-right text-muted-foreground tabular-nums" title="Next reset time">
-+                    {formatQuotaReset(bucket)}
-+                  </span>
-+                </div>
++                  <CardHeader className="space-y-1 p-2.5">
++                    <div className="flex items-start justify-between gap-2">
++                      <div className="min-w-0">
++                        <CardTitle className="truncate text-sm">{label}</CardTitle>
++                        <div className="truncate font-mono text-[10px] text-muted-foreground">{account.id}</div>
++                      </div>
++                      <div className="flex shrink-0 flex-wrap justify-end gap-1">
++                        {isSelected && <Badge tone="success" className="text-[9px]">Selected</Badge>}
++                        {effectiveQuota?.plan_type && <Badge tone="secondary" className="text-[9px] uppercase">{effectiveQuota.plan_type}</Badge>}
++                        {account.last_status && <Badge tone="destructive" className="text-[9px]">{account.last_status}</Badge>}
++                      </div>
++                    </div>
++                  </CardHeader>
++                  <CardContent className="space-y-2 p-2.5 pt-0">
++                    {effectiveQuota?.available && buckets.length > 0 ? (
++                      <QuotaBuckets buckets={buckets} />
++                    ) : (
++                      <p className="text-[10px] text-muted-foreground">
++                        {effectiveQuota?.message || "No cached quota yet."}
++                      </p>
++                    )}
++                    {effectiveQuota?.captured_at && (
++                      <p className="text-[9px] text-muted-foreground/70">
++                        Updated {timeAgo(Date.parse(effectiveQuota.captured_at) / 1000)} from Codex {effectiveQuota.source === "usage_endpoint" ? "usage" : "headers"}.
++                      </p>
++                    )}
++
++                    {isSelected && mainModelEntry && (
++                      <div className="space-y-2 border-t border-border/40 pt-2" onClick={(event) => event.stopPropagation()}>
++                        <div className="flex items-start justify-between gap-2">
++                          <div className="min-w-0 flex-1">
++                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
++                              {mainModelRank && <span className="font-mono text-[10px] text-muted-foreground/60">#{mainModelRank}</span>}
++                              <span className="truncate font-mono-ui text-sm font-semibold">{shortModelName(mainModelEntry.model)}</span>
++                              <span className="inline-flex items-center gap-0.5 bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-primary">
++                                <Star className="h-2.5 w-2.5" /> main
++                              </span>
++                            </div>
++                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
++                              {provider && <Badge tone="secondary" className="text-[9px]">{provider}</Badge>}
++                              {caps?.context_window && caps.context_window > 0 && (
++                                <span className="text-[10px] text-muted-foreground">{formatTokenCount(caps.context_window)} ctx</span>
++                              )}
++                              {caps?.max_output_tokens && caps.max_output_tokens > 0 && (
++                                <span className="text-[10px] text-muted-foreground">{formatTokenCount(caps.max_output_tokens)} out</span>
++                              )}
++                            </div>
++                          </div>
++                          <div className="flex shrink-0 flex-col items-end gap-1">
++                            {showTokens ? (
++                              <div className="text-right">
++                                <div className="font-mono text-xs font-semibold">
++                                  {formatTokens(mainModelEntry.input_tokens + mainModelEntry.output_tokens)}
++                                </div>
++                                <div className="text-[9px] text-muted-foreground">tokens</div>
++                              </div>
++                            ) : (
++                              mainModelEntry.sessions > 0 && (
++                                <div className="text-right">
++                                  <div className="font-mono text-xs font-semibold">{mainModelEntry.sessions}</div>
++                                  <div className="text-[9px] text-muted-foreground">sessions</div>
++                                </div>
++                              )
++                            )}
++                            <UseAsMenu
++                              provider={provider}
++                              model={mainModelEntry.model}
++                              isMain={true}
++                              mainAuxTask={mainAuxTask}
++                              onAssigned={onAssigned}
++                            />
++                          </div>
++                        </div>
++                        {mainModelEntry.last_used_at > 0 && (
++                          <div className="text-right text-[9px] text-muted-foreground">{timeAgo(mainModelEntry.last_used_at)}</div>
++                        )}
++                        <CapabilityBadges capabilities={mainModelEntry.capabilities} />
++                      </div>
++                    )}
++                  </CardContent>
++                </Card>
 +              );
 +            })}
 +          </div>
 +        ) : (
 +          <p className="text-xs text-muted-foreground">
-+            {quota?.message || "No cached ChatGPT quota yet. Send one OpenAI Codex message to capture quota headers."}
-+          </p>
-+        )}
-+        {quota?.captured_at && (
-+          <p className="text-[10px] text-muted-foreground/70">
-+            Updated {timeAgo(Date.parse(quota.captured_at) / 1000)} from Codex {quota.source === "usage_endpoint" ? "usage endpoint" : "response headers"}.
++            {quota?.message || "No ChatGPT accounts found. Add an OpenAI Codex account from Provider logins."}
 +          </p>
 +        )}
 +      </CardContent>
@@ -1128,7 +1363,7 @@ index 1359cbd9f..8c2634bab 100644
  /** Short model name: strip vendor prefix like "openrouter/" or "anthropic/". */
  function shortModelName(model: string): string {
    const slashIdx = model.indexOf("/");
-@@ -768,6 +892,9 @@ export default function ModelsPage() {
+@@ -768,6 +987,9 @@ export default function ModelsPage() {
    const [days, setDays] = useState(30);
    const [data, setData] = useState<ModelsAnalyticsResponse | null>(null);
    const [aux, setAux] = useState<AuxiliaryModelsResponse | null>(null);
@@ -1138,7 +1373,7 @@ index 1359cbd9f..8c2634bab 100644
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
    const [saveKey, setSaveKey] = useState(0);
-@@ -797,15 +924,40 @@ export default function ModelsPage() {
+@@ -797,15 +1019,40 @@ export default function ModelsPage() {
      Promise.all([
        api.getModelsAnalytics(days),
        api.getAuxiliaryModels().catch(() => null),
@@ -1180,7 +1415,7 @@ index 1359cbd9f..8c2634bab 100644
    const onAssigned = useCallback(() => {
      // Reload aux state after any assignment change.
      api
-@@ -815,6 +967,20 @@ export default function ModelsPage() {
+@@ -815,6 +1062,22 @@ export default function ModelsPage() {
      setSaveKey((k) => k + 1);
    }, []);
  
@@ -1191,9 +1426,11 @@ index 1359cbd9f..8c2634bab 100644
 +      .selectCodexAccount(credentialId)
 +      .then((accountData) => {
 +        setCodexAccounts(accountData);
-+        return api.getModelQuota();
++        return api.getModelQuota().catch(() => null);
 +      })
-+      .then(setQuota)
++      .then((quotaData) => {
++        if (quotaData) setQuota(quotaData);
++      })
 +      .catch((err) => setError(String(err)))
 +      .finally(() => setSelectingAccount(false));
 +  }, []);
@@ -1201,7 +1438,29 @@ index 1359cbd9f..8c2634bab 100644
    useLayoutEffect(() => {
      const periodLabel =
        PERIODS.find((p) => p.days === days)?.label ?? `${days}d`;
-@@ -937,6 +1103,13 @@ export default function ModelsPage() {
+@@ -863,6 +1126,21 @@ export default function ModelsPage() {
+     load();
+   }, [load]);
+ 
++  const mainModelEntryIndex = data?.models.findIndex((model) => {
++    const provider = model.provider || modelVendor(model.model);
++    return aux?.main?.provider === provider && aux?.main?.model === model.model;
++  }) ?? -1;
++  const mainModelEntry = mainModelEntryIndex >= 0 && data ? data.models[mainModelEntryIndex] : null;
++  const hideMainCodexModelCard = Boolean(
++    codexAccounts?.accounts?.length &&
++      mainModelEntry &&
++      (mainModelEntry.provider || modelVendor(mainModelEntry.model)) === "openai-codex",
++  );
++  const visibleModelEntries = data?.models.filter((_, index) => {
++    if (!hideMainCodexModelCard) return true;
++    return index !== mainModelEntryIndex;
++  }) ?? [];
++
+   return (
+     <div className="flex min-w-0 max-w-full flex-col gap-6">
+       <PluginSlot name="models:top" />
+@@ -937,6 +1215,19 @@ export default function ModelsPage() {
              </CardContent>
            </Card>
          )}
@@ -1211,7 +1470,80 @@ index 1359cbd9f..8c2634bab 100644
 +          accounts={codexAccounts}
 +          selectingAccount={selectingAccount}
 +          onSelectAccount={selectCodexAccount}
++          mainModelEntry={mainModelEntry}
++          mainModelRank={mainModelEntryIndex >= 0 ? mainModelEntryIndex + 1 : null}
++          main={aux?.main ?? null}
++          aux={aux?.tasks ?? []}
++          onAssigned={onAssigned}
++          showTokens={showTokens}
 +        />
        </div>
  
        {loading && !data && (
+@@ -953,36 +1244,37 @@ export default function ModelsPage() {
+         </Card>
+       )}
+ 
+-      {data && (
+-        <>
+-          {data.models.length > 0 ? (
+-            <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+-              {data.models.map((m, i) => (
+-                <ModelCard
+-                  key={`${m.model}:${m.provider}`}
+-                  entry={m}
+-                  rank={i + 1}
+-                  main={aux?.main ?? null}
+-                  aux={aux?.tasks ?? []}
+-                  onAssigned={onAssigned}
+-                  showTokens={showTokens}
+-                />
+-              ))}
++      {data && visibleModelEntries.length > 0 && (
++        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
++          {visibleModelEntries.map((m) => {
++            const originalRank = data.models.findIndex((entry) => entry === m) + 1;
++            return (
++              <ModelCard
++                key={`${m.model}:${m.provider}`}
++                entry={m}
++                rank={originalRank}
++                main={aux?.main ?? null}
++                aux={aux?.tasks ?? []}
++                onAssigned={onAssigned}
++                showTokens={showTokens}
++              />
++            );
++          })}
++        </div>
++      )}
++
++      {data && data.models.length === 0 && (
++        <Card>
++          <CardContent className="py-12">
++            <div className="flex flex-col items-center text-muted-foreground">
++              <Cpu className="h-8 w-8 mb-3 opacity-40" />
++              <p className="text-sm font-medium">{t.models.noModelsData}</p>
++              <p className="text-xs mt-1 text-muted-foreground/60">
++                {t.models.startSession}
++              </p>
+             </div>
+-          ) : (
+-            <Card>
+-              <CardContent className="py-12">
+-                <div className="flex flex-col items-center text-muted-foreground">
+-                  <Cpu className="h-8 w-8 mb-3 opacity-40" />
+-                  <p className="text-sm font-medium">{t.models.noModelsData}</p>
+-                  <p className="text-xs mt-1 text-muted-foreground/60">
+-                    {t.models.startSession}
+-                  </p>
+-                </div>
+-              </CardContent>
+-            </Card>
+-          )}
+-        </>
++          </CardContent>
++        </Card>
+       )}
+ 
+       <PluginSlot name="models:bottom" />
