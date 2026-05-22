@@ -27,7 +27,7 @@
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-22T09:57:27.043260+00:00",
-      "next_run_at": "2026-05-23T03:00:00+00:00",
+      "next_run_at": "2026-05-22T18:12:21.269680+00:00",
       "last_run_at": null,
       "last_status": null,
       "last_error": null,
@@ -42,7 +42,49 @@
       "enabled_toolsets": null,
       "workdir": null,
       "profile": null
+    },
+    {
+      "id": "f07a5148e1e6",
+      "name": "Daily Holographic Memory Curator",
+      "prompt": "You are the Daily Holographic Memory Curator for Ayman's Hermes system.\n\nMission: read recent Hermes sessions and store only useful durable facts into Holographic memory using fact_store. Do not use Obsidian, Logseq, Joplin, or any note mirror. Do not use the compact memory tool except if explicitly instructed by Ayman in a future job update; compact memory is near capacity. Holographic/fact_store is the Core Crystal.\n\nHard safety rules:\n1. Never save secrets: API keys, tokens, passwords, cookies, private keys, OAuth credentials, JWTs, bearer tokens, raw credential values, or anything that looks like a secret.\n2. Never save temporary artifacts: PR numbers, issue numbers, commit SHAs, session IDs, run IDs, file counts, timestamps, one-off task progress, raw logs, transient errors, or anything likely stale within 7 days.\n3. Never save raw conversation dumps or quotes. Store only clean declarative facts.\n4. Always deduplicate before adding a fact. Use fact_store search/probe/reason to check existing facts and entity relationships.\n5. Prefer fact_store(action='add') with category user_pref, project, tool, or general and useful lowercase comma-separated tags.\n6. If a candidate is uncertain, skip it rather than polluting memory.\n7. Do not remove existing facts. Do not rotate secrets. Do not edit files. Do not make destructive changes.\n\nWorkflow:\n1. Use session_search to browse/search the newest sessions. Focus on sessions since the last daily curator run; if you cannot determine that, inspect the newest sessions only and keep the run bounded.\n2. Extract candidate durable facts from user decisions, corrections, stable preferences, environment/project architecture, provider/model choices, recurring procedures, and useful entity relationships.\n3. For each candidate, run the one-week test: will this still be useful and likely true in 7 days? If no, reject.\n4. Deduplicate with fact_store search/probe/reason. If an existing fact already covers the candidate, skip it.\n5. Add only high-confidence, non-secret, durable facts to fact_store.\n6. Final report must include: sessions inspected, facts added, duplicates skipped, rejected categories, and any uncertainty. Keep it concise.\n\nImportant known context:\n- Ayman prefers local/free/open-source memory systems.\n- Hermes uses Holographic as the memory provider.\n- Use fact_store for durable structured memory.\n- The user asked for this everyday session-reading feature specifically; note-app integrations were abandoned.\n\nRun autonomously. Do not ask questions.",
+      "skills": [],
+      "skill": null,
+      "model": "glm-5.1",
+      "provider": "opencode-go",
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 2 * * *",
+        "display": "0 2 * * *"
+      },
+      "schedule_display": "0 2 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 0
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-22T16:36:03.933633+00:00",
+      "next_run_at": "2026-05-23T02:00:00+00:00",
+      "last_run_at": null,
+      "last_status": null,
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": null,
+      "enabled_toolsets": [
+        "session_search",
+        "memory",
+        "terminal"
+      ],
+      "workdir": null,
+      "profile": null
     }
   ],
-  "updated_at": "2026-05-22T09:57:27.044009+00:00"
+  "updated_at": "2026-05-22T18:12:21.269901+00:00"
 }

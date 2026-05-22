@@ -290,11 +290,15 @@ mcp_servers:
     url: "https://mcp.mycompany.com/v1/mcp"
     headers:
       Authorization: "Bearer sk-xxxxxxxxxxxxxxxxxxxx"
-      X-Team-Id: "engineering"
     timeout: 180
     connect_timeout: 30
 ```
 
+### Context7 Docs Server
+
+For Context7, prefer the remote HTTP endpoint when an API key is provided so the key lives in `headers.CONTEXT7_API_KEY` instead of a CLI argument. See `references/context7.md` for a known-good Hermes config, verification output, and backup-safety notes.
+
+### Multiple Servers
 ### Multiple Servers
 
 ```yaml

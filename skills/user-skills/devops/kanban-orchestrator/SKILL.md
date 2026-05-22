@@ -178,6 +178,8 @@ Tell them what you created in plain prose, naming the actual profiles you used:
 
 **Tenant inheritance.** If `HERMES_TENANT` is set in your env, pass `tenant=os.environ.get("HERMES_TENANT")` on every `kanban_create` call so child tasks stay in the same namespace.
 
+**Profile-scoped side effects.** Worker profiles may run with their own `HERMES_HOME` / profile directories. If a card creates durable system state (cron jobs, profiles, config, files, subscriptions, credentials, service units), do not trust the worker's self-report alone. Verify the result from the controlling/default profile or the real production path before telling the user it is active. Example: a worker-created cron job can land under `/home/ubuntu/.hermes/profiles/<worker>/cron/jobs.json`, while the gateway scheduler reads `/home/ubuntu/.hermes/cron/jobs.json`; such a job appears successful to the worker but never fires. For gateway-visible raid timers, prefer creating the final cron job from the parent/operator context with the native cronjob tool, then have a reviewer inspect the default-profile `hermes cron list` and jobs file. See `references/profile-scoped-cron-and-side-effects.md` for the full verification pattern.
+
 ## Recovering stuck workers
 
 When a worker profile keeps crashing, hallucinating, or getting blocked by its own mistakes (usually: wrong model, missing skill, broken credential), the kanban dashboard flags the task with a ⚠ badge and opens a **Recovery** section in the drawer. Three primary actions:

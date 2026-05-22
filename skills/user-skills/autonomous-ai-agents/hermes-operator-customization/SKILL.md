@@ -222,6 +222,21 @@ ssh -L 9119:127.0.0.1:9119 ubuntu@VPS_IP
 
 Only bind to a Tailscale IP or `0.0.0.0 --insecure` when the user explicitly accepts the risk. Never expose the dashboard to the public internet.
 
+## Local voice/STT setup
+
+Load `hermes-agent` before answering or acting. Use this section when Ayman asks about Telegram voice messages, local speech-to-text, Spokenly, Whisper, NVIDIA Parakeet, or custom ASR.
+
+Key pitfall: if the user mentions an "NVIDIA voice model" or "Parakeet v2", do **not** assume the issue is GPU/CUDA. NVIDIA Parakeet is an ASR model family and may be used CPU/local/remote depending on the runtime. Clarify model/runtime only when it changes the command path.
+
+Hermes has two relevant local STT paths:
+
+- Built-in `stt.provider: local` uses `faster-whisper`.
+- `stt.provider: local_command` uses `HERMES_LOCAL_STT_COMMAND` and can bridge Parakeet, Spokenly, or any custom ASR wrapper that writes a `.txt` transcript.
+
+For custom ASR, prefer an isolated venv and wrapper script instead of installing heavy ML deps into the live Hermes environment. On Oracle ARM free-tier VPSes, Parakeet 0.6B-class models are usually feasible for short Telegram voice notes with 4 OCPUs/24 GB RAM, but ARM64 dependency compatibility is the main risk. If swap is 0, propose adding an 8 GB swapfile before heavy ML installs/runs, but ask approval because it changes system config.
+
+See `references/local-stt-parakeet.md` for the read-only suitability checks, Parakeet v2/v3 tradeoff, `HERMES_LOCAL_STT_COMMAND` bridge shape, and PC-over-Tailscale alternative.
+
 ## Telegram Comms Gate setup
 
 Load `hermes-agent` before answering or acting.
@@ -349,3 +364,4 @@ Use Shadow System Operator flavor sparingly: practical report first, flavor seco
 - `references/native-dashboard-tailscale-shadow-realm.md` — persistent native Hermes dashboard (“Shadow Realm”) over Tailscale via systemd user service, verification commands, reboot-survival checks, and security caveats.
 - `references/native-dashboard-codex-quota.md` — Codex/ChatGPT quota display in the native dashboard: live `/usage` endpoint, 5-second polling, sanitized data only, and Ayman’s preference to show remaining quota (`% left`) rather than used quota.
 - `references/private-recovery-backup-vault.md` — private GitHub recovery vault pattern for backing up Hermes source/config/skills/memory/systemd without committing Access Keys, logs, caches, or session transcripts.
+- `references/local-stt-parakeet.md` — local/custom STT bridge for Hermes voice messages using NVIDIA Parakeet/Spokenly via `HERMES_LOCAL_STT_COMMAND`, including Oracle ARM VPS suitability checks and Tailscale bridge alternative.

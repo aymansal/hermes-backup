@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T12:18:46Z",
+  "generated_at": "2026-05-22T18:12:40Z",
   "hermes_home": "/home/ubuntu/.hermes",
   "source_path": "/home/ubuntu/.hermes/hermes-agent",
-  "env_key_count": 15,
+  "env_key_count": 16,
   "included": [
     "source",
     "sanitized config",
