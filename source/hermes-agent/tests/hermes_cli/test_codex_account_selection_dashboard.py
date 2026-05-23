@@ -96,6 +96,35 @@ def test_codex_account_rows_include_only_sanitized_quota(tmp_path, monkeypatch):
     assert "authorization" not in serialized
 
 
+def test_codex_account_rows_blank_label_not_gptn(tmp_path, monkeypatch):
+    """Blank and missing labels get neutral fallback, never GptN."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    _write_auth_store(
+        tmp_path,
+        {
+            "version": 1,
+            "credential_pool": {
+                "openai-codex": [
+                    {"id": "cred-blank", "label": "", "auth_type": "oauth", "priority": 0, "source": "device_code", "access_token": "t1"},
+                    {"id": "cred-none", "auth_type": "oauth", "priority": 0, "source": "device_code", "access_token": "t2"},
+                    {"id": "cred-named", "label": "Swarm", "auth_type": "oauth", "priority": 0, "source": "device_code", "access_token": "t3"},
+                ]
+            },
+        },
+    )
+
+    from hermes_cli.web_server import _codex_account_rows
+
+    rows = _codex_account_rows("")
+
+    labels = {r["id"]: r["label"] for r in rows}
+    assert labels["cred-blank"] == "ChatGPT Account", "blank label should use neutral fallback"
+    assert labels["cred-none"] == "ChatGPT Account", "missing label should use neutral fallback"
+    assert labels["cred-named"] == "Swarm", "explicit label should be preserved"
+    for r in rows:
+        assert "Gpt" not in r["label"], f"no GptN fallback for {r['id']}: {r['label']}"
+
+
 def test_select_codex_account_writes_global_model_credential_id(tmp_path, monkeypatch):
     hermes_home = tmp_path / "hermes"
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))

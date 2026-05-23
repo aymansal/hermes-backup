@@ -169,7 +169,7 @@ function ChatGPTQuotaCard({
               const isSelected = account.id === selectedId || Boolean(account.selected && !selectedId);
               const effectiveQuota = isSelected && quota?.available ? quota : account.quota;
               const buckets = effectiveQuota?.buckets ?? [];
-              const label = account.label || `Gpt${account.index}`;
+              const label = account.label || "ChatGPT Account";
               const provider = mainModelEntry?.provider || (mainModelEntry ? modelVendor(mainModelEntry.model) : main?.provider || "openai-codex");
               const caps = mainModelEntry?.capabilities;
               const mainAuxTask = mainModelEntry

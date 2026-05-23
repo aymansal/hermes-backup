@@ -241,7 +241,7 @@ export const api = {
       },
     );
   },
-  startOAuthLogin: async (providerId: string) => {
+  startOAuthLogin: async (providerId: string, label?: string) => {
     const token = await getSessionToken();
     return fetchJSON<OAuthStartResponse>(
       `/api/providers/oauth/${encodeURIComponent(providerId)}/start`,
@@ -251,7 +251,7 @@ export const api = {
           "Content-Type": "application/json",
           [SESSION_HEADER]: token,
         },
-        body: "{}",
+        body: JSON.stringify({ label: label || "" }),
       },
     );
   },

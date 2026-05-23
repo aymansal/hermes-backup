@@ -15,6 +15,7 @@ import importlib.util
 import json
 import logging
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -1103,7 +1104,7 @@ def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
         rows.append({
             "id": cid,
             "index": idx,
-            "label": str(entry.get("label") or f"Gpt{idx}"),
+            "label": str(entry.get("label") or "").strip() or "ChatGPT Account",
             "source": str(entry.get("source") or ""),
             "auth_type": str(entry.get("auth_type") or ""),
             "priority": entry.get("priority"),
@@ -1148,6 +1149,21 @@ def _codex_account_fingerprint(access_token: str) -> str:
     except Exception:
         return ""
     return ""
+
+
+def _resolve_codex_label(session_label: str | None, existing_label: str) -> str:
+    """Determine the label for a new Codex credential added via dashboard.
+
+    - If user explicitly provided a non-empty label, use it (trimmed, bounded to 64).
+    - If the credential is a re-auth of an existing one, preserve its label.
+    - Otherwise, use a neutral fallback (no GptN auto-increment).
+    """
+    session_label = (session_label or "").strip()[:64]
+    if session_label:
+        return session_label
+    if existing_label:
+        return existing_label
+    return "ChatGPT Account"
 
 
 @app.get("/api/model/quota")
@@ -2104,12 +2120,14 @@ def _submit_anthropic_pkce(session_id: str, code_input: str) -> Dict[str, Any]:
     return {"ok": True, "status": "approved"}
 
 
-async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
+async def _start_device_code_flow(provider_id: str, label: str = "") -> Dict[str, Any]:
     """Initiate a device-code flow (Nous, OpenAI Codex, or MiniMax).
 
     Calls the provider's device-auth endpoint via the existing CLI helpers,
     then spawns a background poller. Returns the user-facing display fields
     so the UI can render the verification page link + user code.
+
+    ``label`` is an optional account name sent by the dashboard operator.
     """
     if provider_id == "nous":
         from hermes_cli.auth import (
@@ -2167,7 +2185,9 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
 
     if provider_id == "openai-codex":
         # Codex uses fixed OpenAI device-auth endpoints; reuse the helper.
-        sid, _ = _new_oauth_session("openai-codex", "device_code")
+        sid, sess = _new_oauth_session("openai-codex", "device_code")
+        if label:
+            sess["label"] = label
         # Use the helper but in a thread because it polls inline.
         # We can't extract just the start step without refactoring auth.py,
         # so we run the full helper in a worker and proxy the user_code +
@@ -2552,8 +2572,7 @@ def _codex_full_login_worker(session_id: str) -> None:
                     existing = candidate
                     break
         if existing is not None:
-            entry = _dc_replace(
-                existing,
+            kwargs = dict(
                 access_token=access_token,
                 refresh_token=refresh_token or existing.refresh_token,
                 base_url=base_url,
@@ -2565,6 +2584,14 @@ def _codex_full_login_worker(session_id: str) -> None:
                 last_error_reset_at=None,
                 extra={**(existing.extra or {}), "account_fingerprint": fingerprint},
             )
+            # Use _resolve_codex_label for consistent label handling
+            existing_label = existing.label or ""
+            resolved_label = _resolve_codex_label(
+                sess.get("label") if sess else None, existing_label
+            )
+            if resolved_label != existing_label:
+                kwargs["label"] = resolved_label
+            entry = _dc_replace(existing, **kwargs)
             pool._replace_entry(existing, entry)
             pool._persist()
             action = "refreshed"
@@ -2572,7 +2599,7 @@ def _codex_full_login_worker(session_id: str) -> None:
             entry = PooledCredential(
                 provider="openai-codex",
                 id=_uuid.uuid4().hex[:6],
-                label=f"Gpt{len(pool.entries()) + 1}",
+                label=_resolve_codex_label(sess.get("label") if sess else None, ""),
                 auth_type=AUTH_TYPE_OAUTH,
                 priority=0,
                 source=f"{SOURCE_MANUAL}:dashboard_device_code",
@@ -2624,6 +2651,16 @@ async def start_oauth_login(provider_id: str, request: Request):
             detail=f"{provider_id} uses an external CLI; run `{catalog_entry['cli_command']}` manually",
         )
     try:
+        # Read optional label from body (dashboard sends JSON with optional "label" field).
+        label = ""
+        content_type = (request.headers.get("content-type") or "").lower()
+        if content_type.startswith("application/json"):
+            try:
+                body = await request.json()
+                label = (body.get("label") or "").strip()[:64] if isinstance(body, dict) else ""
+            except Exception:
+                label = ""
+
         # The pkce branch is gated on provider_id == "anthropic" because
         # `_start_anthropic_pkce()` is hardcoded to the Anthropic flow.
         # Routing any other future pkce-flagged provider through it would
@@ -2633,7 +2670,7 @@ async def start_oauth_login(provider_id: str, request: Request):
         if catalog_entry["flow"] == "pkce" and provider_id == "anthropic":
             return _start_anthropic_pkce()
         if catalog_entry["flow"] == "device_code":
-            return await _start_device_code_flow(provider_id)
+            return await _start_device_code_flow(provider_id, label=label)
     except HTTPException:
         raise
     except Exception as e:

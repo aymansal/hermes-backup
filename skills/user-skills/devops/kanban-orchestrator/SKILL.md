@@ -41,8 +41,11 @@ Create Kanban tasks when any of these are true:
 4. **Multiple subtasks can run in parallel.** Fan-out for speed.
 5. **Review / iteration is expected.** A reviewer profile loops on drafter output.
 6. **The audit trail matters.** Board rows persist in SQLite forever.
+7. **Ayman's 90-second/system-change threshold is crossed.** For Ayman, live repo work, Hermes Agent fixes, config edits, cron/Raid Timer changes, auth/credential-adjacent repairs, service restarts, deploys, or any task likely to exceed ~90 seconds must start as a Kanban raid before doing inline implementation. A local todo list is not a substitute for the board because it loses worker/reviewer accountability and durable audit trail.
 
 If *none* of those apply — it's a small one-shot reasoning task — use `delegate_task` instead or answer the user directly.
+
+See `references/ayman-hermes-ops-kanban-correction.md` for a concrete Hermes Agent ops raid pattern that was added after Ayman corrected an inline execution mistake.
 
 ## The anti-temptation rules
 
@@ -180,6 +183,8 @@ Report phase changes promptly and do not make Ayman ask for status after a gate 
 **Forgetting dependency links.** If the task graph says `research -> implement -> review`, do not create all tasks as independent ready cards. Use parent links so implement/review cannot run before their inputs exist.
 
 **Reassignment vs. new task.** If a reviewer blocks with "needs changes," create a NEW task linked from the reviewer's task — don't re-run the same task with a stern look. The new task is assigned to the original implementer profile.
+
+**Reviewer protocol violations can hide real verdicts.** If a review appears stuck but its log contains a clear PASS/BLOCKED verdict, recover the verdict instead of waiting blindly. Inspect `hermes kanban show`, `hermes kanban runs`, and `hermes kanban log <task_id> --tail 8000`; if the worker exited cleanly without calling `kanban_complete`/`kanban_block`, reclaim it, record the verdict manually, and route BLOCKED findings back to the same worker. See `references/reviewer-protocol-violation-recovery.md`.
 
 **Blocked review completion can accidentally promote unsafe downstream children.** When you mark a failed/blocked review as `done` only to unlock a fix iteration, inspect the full board immediately after dispatch. Any operational child that should still wait (cron/Raid Timer, deploy, restart, production activation, warmup, config enablement) may be promoted because its parent is now `done`. Reclaim and re-block those children immediately with an explicit reason. Better: when possible, create the fix card as the only child of the failed review and keep deploy/activation cards blocked until a later PASS review.
 

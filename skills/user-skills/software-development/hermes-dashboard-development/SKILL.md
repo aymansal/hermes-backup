@@ -140,6 +140,8 @@ When reporting Codex quota to Ayman in chat, convert provider UTC reset timestam
 
 For OpenAI Codex / ChatGPT multi-account dashboards, account selection is not just a quota-view filter. The selected account should write `model.provider=openai-codex` plus `model.credential_id=<credential_id>` so all new Hermes runtime paths that call `resolve_runtime_provider()` use that account. Render accounts as card-like UI, not a dropdown or flat row list, and state clearly that existing live sessions may need `/reset`, a new session, or process restart because API keys can already be resolved in memory. For Ayman's preferred Shadow Realm UX, account cards should be compact and clickable directly; avoid redundant “Use for Hermes chat” buttons, and merge duplicated active Codex model-card metadata into the selected account card when practical. Implementation notes and test targets live in `references/codex-account-cards-global-selection.md`.
 
+When adding dashboard-managed Codex accounts, never generate display labels from `len(pool.entries()) + 1`. Deleting a middle account makes length-based labels collide (`Gpt1`, `Gpt2`, `Gpt4` -> new `Gpt4`). Allocate the lowest unused `GptN` slot, or persist a monotonic counter if product policy requires never reusing labels. See `references/codex-dashboard-account-labeling.md` for the concrete bug, helper pattern, and regression tests.
+
 ## Build and Verification
 
 Always run both backend and frontend checks after dashboard changes:
@@ -167,6 +169,8 @@ Probe the endpoint from the live bind address. If the endpoint returns `401`, ch
 ## Common Pitfalls
 
 0. **Codex quota works in the model path but not in dashboard/footer after account switch.** ChatGPT/Codex account switches may store OAuth credentials in `credential_pool.openai-codex[0]` while older quota helpers look only under `providers.openai-codex.tokens`. If `/api/model/quota` says `logged_in=false` / `No Codex credentials stored` but sanitized auth inspection shows credential-pool tokens present, patch the quota resolver to accept both storage shapes. See `references/codex-quota-credential-pool-mismatch.md` for the safe diagnostic and fix path.
+
+0a. **Duplicate Codex account labels after deletion.** Dashboard-managed Codex labels must not be based on pool length. If the user reports `Gpt4` appearing twice after deleting `Gpt3`, inspect the dashboard device-code login code for `label=f"Gpt{len(pool.entries()) + 1}"` and replace it with a helper that scans existing `GptN` labels and chooses the lowest unused slot. See `references/codex-dashboard-account-labeling.md`.
 
 1. **Forgetting the frontend build.** Editing `web/src/...` does not change what the dashboard serves until `npm run build` updates `hermes_cli/web_dist`.
 

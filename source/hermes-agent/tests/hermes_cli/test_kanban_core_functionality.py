@@ -4419,3 +4419,159 @@ def test_dispatch_once_stale_disabled_when_timeout_zero(kanban_home, monkeypatch
         )
         assert res.stale == [], "stale_timeout_seconds=0 should disable detection"
         assert kb.get_task(conn, t).status == "running"
+
+# ---------------------------------------------------------------------------
+# Protocol violation sticky-block tests
+# ---------------------------------------------------------------------------
+
+
+def test_protocol_violation_block_is_sticky_standalone(kanban_home):
+    """A standalone task (no parents) auto-blocked after a protocol violation
+    must stay ``blocked`` across ``recompute_ready`` ticks.
+
+    Regression test for the protocol-violation loop: a worker exits rc=0
+    without calling ``kanban_complete`` or ``kanban_block``, the dispatcher
+    auto-blocks via ``_record_task_failure(failure_limit=1)``, but
+    ``_has_sticky_block`` must return ``True`` so ``recompute_ready`` does
+    NOT promote the task back to ``ready`` for respawn.
+
+    Without the fix ``protocol_violation`` was NOT treated as a sticky
+    trigger, so ``recompute_ready`` would promote ``blocked`` -> ``ready``
+    (``all([])`` = ``True`` for a task with no parents) and the loop would
+    repeat indefinitely.
+    """
+    conn = kb.connect()
+    try:
+        # Create a standalone task (no parents).
+        tid = kb.create_task(conn, title="quiet-exit")
+
+        # Simulate the state after detect_crashed_workers +
+        # _record_task_failure process a protocol violation:
+        # status='blocked', with protocol_violation + gave_up events
+        # (exactly what the production code writes).
+        conn.execute(
+            "UPDATE tasks SET status='blocked', consecutive_failures=1, "
+            "last_failure_error='worker exited cleanly without calling "
+            "kanban_complete or kanban_block' WHERE id=?",
+            (tid,),
+        )
+        now = int(time.time())
+        conn.execute(
+            "INSERT INTO task_events (task_id, kind, payload, created_at) "
+            "VALUES (?, 'protocol_violation', '{}', ?)",
+            (tid, now),
+        )
+        conn.execute(
+            "INSERT INTO task_events (task_id, kind, payload, created_at) "
+            "VALUES (?, 'gave_up', '{}', ?)",
+            (tid, now + 1),
+        )
+        conn.commit()
+
+        # Now run recompute_ready — it must NOT promote this task.
+        promoted = kb.recompute_ready(conn)
+        assert promoted == 0, (
+            f"protocol-violation blocked task should NOT be promoted, "
+            f"got {promoted} promotions"
+        )
+        task = kb.get_task(conn, tid)
+        assert task.status == "blocked", (
+            f"expected status='blocked', got {task.status!r}"
+        )
+    finally:
+        conn.close()
+
+
+def test_protocol_violation_block_is_sticky_with_parents_done(kanban_home):
+    """A task with completed parents that gets auto-blocked after a
+    protocol violation must stay ``blocked`` — even though its parents
+    are done, the ``protocol_violation`` event makes the block sticky.
+
+    This is the most common real-world scenario: a review task is a child
+    of a planning task.  If the review worker exits without completing,
+    completing the parent should NOT auto-promote the review.
+    """
+    conn = kb.connect()
+    try:
+        parent = kb.create_task(conn, title="parent")
+        child = kb.create_task(conn, title="child-quiet-exit", parents=[parent])
+        kb.complete_task(conn, parent, result="ok")
+
+        # Same protocol-violation simulation as above.
+        conn.execute(
+            "UPDATE tasks SET status='blocked', consecutive_failures=1, "
+            "last_failure_error='worker exited cleanly without calling "
+            "kanban_complete or kanban_block' WHERE id=?",
+            (child,),
+        )
+        now = int(time.time())
+        conn.execute(
+            "INSERT INTO task_events (task_id, kind, payload, created_at) "
+            "VALUES (?, 'protocol_violation', '{}', ?)",
+            (child, now),
+        )
+        conn.execute(
+            "INSERT INTO task_events (task_id, kind, payload, created_at) "
+            "VALUES (?, 'gave_up', '{}', ?)",
+            (child, now + 1),
+        )
+        conn.commit()
+
+        # recompute_ready should NOT promote — sticky block.
+        promoted = kb.recompute_ready(conn)
+        assert promoted == 0, (
+            f"protocol-violation blocked child should NOT be promoted "
+            f"even with parent done, got {promoted} promotions"
+        )
+        task = kb.get_task(conn, child)
+        assert task.status == "blocked", (
+            f"expected status='blocked', got {task.status!r}"
+        )
+    finally:
+        conn.close()
+
+
+def test_protocol_violation_block_cleared_by_unblock(kanban_home):
+    """After an operator unblocks a protocol-violation-sticky task,
+    ``recompute_ready`` can promote it again for a fresh retry.
+    """
+    conn = kb.connect()
+    try:
+        parent = kb.create_task(conn, title="parent")
+        child = kb.create_task(conn, title="child-unblock-test", parents=[parent])
+        kb.complete_task(conn, parent, result="ok")
+
+        # Simulate protocol-violation auto-block.
+        conn.execute(
+            "UPDATE tasks SET status='blocked', consecutive_failures=1, "
+            "last_failure_error='protocol violation' WHERE id=?",
+            (child,),
+        )
+        now = int(time.time())
+        conn.execute(
+            "INSERT INTO task_events (task_id, kind, payload, created_at) "
+            "VALUES (?, 'protocol_violation', '{}', ?)",
+            (child, now),
+        )
+        conn.execute(
+            "INSERT INTO task_events (task_id, kind, payload, created_at) "
+            "VALUES (?, 'gave_up', '{}', ?)",
+            (child, now + 1),
+        )
+        conn.commit()
+
+        # First tick: task should stay blocked.
+        assert kb.recompute_ready(conn) == 0
+        assert kb.get_task(conn, child).status == "blocked"
+
+        # Operator unblocks.
+        assert kb.unblock_task(conn, child)
+        assert kb.get_task(conn, child).status == "ready"
+
+        # Second tick: task should be eligible for promotion (but it's
+        # already 'ready', so no promotion needed — verify consistency).
+        promoted = kb.recompute_ready(conn)
+        assert promoted == 0  # already ready, nothing to promote
+        assert kb.get_task(conn, child).status == "ready"
+    finally:
+        conn.close()

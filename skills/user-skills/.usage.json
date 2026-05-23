@@ -25,18 +25,31 @@
     "use_count": 0,
     "view_count": 0
   },
+  "codex-credential-pool-operations": {
+    "archived_at": null,
+    "created_at": "2026-05-23T11:43:20.626404+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-05-23T11:43:46.983663+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
+  },
   "hermes-dashboard-development": {
     "archived_at": null,
     "created_at": "2026-05-21T17:53:15.654633+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-05-22T19:59:36.230662+00:00",
-    "last_used_at": "2026-05-22T19:59:28.603008+00:00",
-    "last_viewed_at": "2026-05-22T19:59:28.599968+00:00",
-    "patch_count": 15,
+    "last_patched_at": "2026-05-23T11:10:23.557823+00:00",
+    "last_used_at": "2026-05-23T11:47:36.488833+00:00",
+    "last_viewed_at": "2026-05-23T11:47:36.486083+00:00",
+    "patch_count": 18,
     "pinned": false,
     "state": "active",
-    "use_count": 14,
-    "view_count": 14
+    "use_count": 17,
+    "view_count": 17
   },
   "hermes-operator-customization": {
     "archived_at": null,
@@ -107,14 +120,14 @@
     "archived_at": null,
     "created_at": "2026-05-22T15:56:13.362626+00:00",
     "created_by": null,
-    "last_patched_at": "2026-05-23T00:17:29.221530+00:00",
-    "last_used_at": "2026-05-23T00:15:21.614792+00:00",
-    "last_viewed_at": "2026-05-23T00:15:21.609984+00:00",
-    "patch_count": 23,
+    "last_patched_at": "2026-05-23T14:16:52.933674+00:00",
+    "last_used_at": "2026-05-23T14:34:40.527561+00:00",
+    "last_viewed_at": "2026-05-23T14:34:40.524154+00:00",
+    "patch_count": 28,
     "pinned": false,
     "state": "active",
-    "use_count": 19,
-    "view_count": 17
+    "use_count": 23,
+    "view_count": 21
   },
   "terminal-command-guidance": {
     "archived_at": null,

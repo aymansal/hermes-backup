@@ -2056,10 +2056,11 @@ def _synthesize_ended_run(
 # ---------------------------------------------------------------------------
 
 def _has_sticky_block(conn: sqlite3.Connection, task_id: str) -> bool:
-    """Return True when ``task_id`` is sticky-blocked by an explicit
-    worker/operator ``kanban_block`` call (#28712).
+    """Return True when ``task_id`` is sticky-blocked and should NOT be
+    auto-promoted by ``recompute_ready`` (#28712, #kanban-loop).
 
-    A ``blocked`` status can come from two very different sources:
+    A ``blocked`` status can come from three sources; the first two are
+    sticky, the third is auto-recoverable:
 
     * **Worker- or operator-initiated** — a worker called
       ``kanban_block(reason="review-required: ...")`` (or somebody ran
@@ -2067,30 +2068,44 @@ def _has_sticky_block(conn: sqlite3.Connection, task_id: str) -> bool:
       should stay blocked until an operator unblocks it.  The block tool
       emits a ``"blocked"`` event row in ``task_events``.
 
-    * **Circuit-breaker** — ``_record_task_failure`` tripped after
-      repeated crashes / spawn failures / timeouts.  This emits
-      ``"gave_up"``, *not* ``"blocked"``, and is meant to recover
-      automatically once the underlying conditions change (e.g. parents
-      finish, transient infra error clears).
+    * **Protocol violation** — a worker exited cleanly (rc=0) without
+      calling ``kanban_complete`` or ``kanban_block``.  This is a
+      deterministic failure: the same model + same prompt will produce
+      the same result, so retrying is pointless.  The dispatcher emits
+      a ``"protocol_violation"`` event, then the circuit breaker
+      (failure_limit=1) emits ``"gave_up"`` and flips status to
+      ``'blocked'``.
 
-    The cheapest signal that distinguishes the two is the most recent
-    ``"blocked"`` / ``"unblocked"`` event for the task.  If the most
-    recent one is ``"blocked"`` (or there is a ``"blocked"`` event and
-    no ``"unblocked"`` event has fired since), the task is sticky and
-    ``recompute_ready`` must *not* auto-promote it.
+    * **Circuit-breaker** (non-protocol) — ``_record_task_failure``
+      tripped after repeated crashes / spawn failures / timeouts.
+      This emits ``"gave_up"``, *not* ``"blocked"`` or
+      ``"protocol_violation"``, and is meant to recover automatically
+      once the underlying conditions change (e.g. parents finish,
+      transient infra error clears).
 
-    Returns ``False`` when there is no such event at all (e.g. the task
-    was set to ``status='blocked'`` by the circuit breaker or by direct
-    DB manipulation) — preserves the pre-#28712 auto-recover semantics
-    for that path.
+    The cheapest signal that distinguishes the three is the most recent
+    ``"blocked"`` / ``"unblocked"`` / ``"protocol_violation"``
+    event for the task:
+
+    * ``"blocked"`` or ``"protocol_violation"`` -> sticky (do not
+      auto-promote).
+    * ``"unblocked"`` -> not sticky (safe to auto-promote).
+    * No such event -> not sticky (pre-#28712 fallback for circuit-
+      breaker blocks set via direct DB manipulation).
+
+    Returns ``False`` when there is no relevant event — preserves the
+    pre-#28712 auto-recover semantics for plain circuit-breaker blocks.
     """
     row = conn.execute(
         "SELECT kind FROM task_events "
-        "WHERE task_id = ? AND kind IN ('blocked', 'unblocked') "
+        "WHERE task_id = ? AND kind IN ('blocked', 'unblocked', 'protocol_violation') "
         "ORDER BY id DESC LIMIT 1",
         (task_id,),
     ).fetchone()
-    return bool(row) and row["kind"] == "blocked"
+    if not row:
+        return False
+    # ``blocked`` and ``protocol_violation`` are sticky; ``unblocked`` is not.
+    return row["kind"] != "unblocked"
 
 
 def recompute_ready(conn: sqlite3.Connection) -> int:

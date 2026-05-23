@@ -409,6 +409,88 @@ index 8d4484fad..cffa27bef 100644
      "toolsets": ["hermes-cli"],
      "agent": {
          "max_turns": 90,
+diff --git a/hermes_cli/kanban_db.py b/hermes_cli/kanban_db.py
+index 7a30b7098..71a0343eb 100644
+--- a/hermes_cli/kanban_db.py
++++ b/hermes_cli/kanban_db.py
+@@ -2056,10 +2056,11 @@ def _synthesize_ended_run(
+ # ---------------------------------------------------------------------------
+ 
+ def _has_sticky_block(conn: sqlite3.Connection, task_id: str) -> bool:
+-    """Return True when ``task_id`` is sticky-blocked by an explicit
+-    worker/operator ``kanban_block`` call (#28712).
++    """Return True when ``task_id`` is sticky-blocked and should NOT be
++    auto-promoted by ``recompute_ready`` (#28712, #kanban-loop).
+ 
+-    A ``blocked`` status can come from two very different sources:
++    A ``blocked`` status can come from three sources; the first two are
++    sticky, the third is auto-recoverable:
+ 
+     * **Worker- or operator-initiated** — a worker called
+       ``kanban_block(reason="review-required: ...")`` (or somebody ran
+@@ -2067,30 +2068,44 @@ def _has_sticky_block(conn: sqlite3.Connection, task_id: str) -> bool:
+       should stay blocked until an operator unblocks it.  The block tool
+       emits a ``"blocked"`` event row in ``task_events``.
+ 
+-    * **Circuit-breaker** — ``_record_task_failure`` tripped after
+-      repeated crashes / spawn failures / timeouts.  This emits
+-      ``"gave_up"``, *not* ``"blocked"``, and is meant to recover
+-      automatically once the underlying conditions change (e.g. parents
+-      finish, transient infra error clears).
+-
+-    The cheapest signal that distinguishes the two is the most recent
+-    ``"blocked"`` / ``"unblocked"`` event for the task.  If the most
+-    recent one is ``"blocked"`` (or there is a ``"blocked"`` event and
+-    no ``"unblocked"`` event has fired since), the task is sticky and
+-    ``recompute_ready`` must *not* auto-promote it.
+-
+-    Returns ``False`` when there is no such event at all (e.g. the task
+-    was set to ``status='blocked'`` by the circuit breaker or by direct
+-    DB manipulation) — preserves the pre-#28712 auto-recover semantics
+-    for that path.
++    * **Protocol violation** — a worker exited cleanly (rc=0) without
++      calling ``kanban_complete`` or ``kanban_block``.  This is a
++      deterministic failure: the same model + same prompt will produce
++      the same result, so retrying is pointless.  The dispatcher emits
++      a ``"protocol_violation"`` event, then the circuit breaker
++      (failure_limit=1) emits ``"gave_up"`` and flips status to
++      ``'blocked'``.
++
++    * **Circuit-breaker** (non-protocol) — ``_record_task_failure``
++      tripped after repeated crashes / spawn failures / timeouts.
++      This emits ``"gave_up"``, *not* ``"blocked"`` or
++      ``"protocol_violation"``, and is meant to recover automatically
++      once the underlying conditions change (e.g. parents finish,
++      transient infra error clears).
++
++    The cheapest signal that distinguishes the three is the most recent
++    ``"blocked"`` / ``"unblocked"`` / ``"protocol_violation"``
++    event for the task:
++
++    * ``"blocked"`` or ``"protocol_violation"`` -> sticky (do not
++      auto-promote).
++    * ``"unblocked"`` -> not sticky (safe to auto-promote).
++    * No such event -> not sticky (pre-#28712 fallback for circuit-
++      breaker blocks set via direct DB manipulation).
++
++    Returns ``False`` when there is no relevant event — preserves the
++    pre-#28712 auto-recover semantics for plain circuit-breaker blocks.
+     """
+     row = conn.execute(
+         "SELECT kind FROM task_events "
+-        "WHERE task_id = ? AND kind IN ('blocked', 'unblocked') "
++        "WHERE task_id = ? AND kind IN ('blocked', 'unblocked', 'protocol_violation') "
+         "ORDER BY id DESC LIMIT 1",
+         (task_id,),
+     ).fetchone()
+-    return bool(row) and row["kind"] == "blocked"
++    if not row:
++        return False
++    # ``blocked`` and ``protocol_violation`` are sticky; ``unblocked`` is not.
++    return row["kind"] != "unblocked"
+ 
+ 
+ def recompute_ready(conn: sqlite3.Connection) -> int:
 diff --git a/hermes_cli/runtime_provider.py b/hermes_cli/runtime_provider.py
 index c40316e02..fa8a60b66 100644
 --- a/hermes_cli/runtime_provider.py
@@ -454,10 +536,18 @@ index c40316e02..fa8a60b66 100644
          if entry is not None:
              pool_api_key = (
 diff --git a/hermes_cli/web_server.py b/hermes_cli/web_server.py
-index 7d28ce076..59e2c6386 100644
+index 7d28ce076..90f63d44d 100644
 --- a/hermes_cli/web_server.py
 +++ b/hermes_cli/web_server.py
-@@ -23,7 +23,7 @@ import time
+@@ -15,6 +15,7 @@ import importlib.util
+ import json
+ import logging
+ import os
++import re
+ import secrets
+ import subprocess
+ import sys
+@@ -23,7 +24,7 @@ import time
  import urllib.parse
  import urllib.request
  from pathlib import Path
@@ -466,7 +556,7 @@ index 7d28ce076..59e2c6386 100644
  
  import yaml
  
-@@ -474,6 +474,10 @@ class ModelAssignment(BaseModel):
+@@ -474,6 +475,10 @@ class ModelAssignment(BaseModel):
      task: str = ""
  
  
@@ -477,7 +567,7 @@ index 7d28ce076..59e2c6386 100644
  _GATEWAY_HEALTH_URL = os.getenv("GATEWAY_HEALTH_URL")
  try:
      _GATEWAY_HEALTH_TIMEOUT = float(os.getenv("GATEWAY_HEALTH_TIMEOUT", "3"))
-@@ -1002,6 +1006,293 @@ def get_model_options():
+@@ -1002,6 +1007,308 @@ def get_model_options():
          raise HTTPException(status_code=500, detail="Failed to list model options")
  
  
@@ -578,7 +668,7 @@ index 7d28ce076..59e2c6386 100644
 +        rows.append({
 +            "id": cid,
 +            "index": idx,
-+            "label": str(entry.get("label") or f"Gpt{idx}"),
++            "label": str(entry.get("label") or "").strip() or "ChatGPT Account",
 +            "source": str(entry.get("source") or ""),
 +            "auth_type": str(entry.get("auth_type") or ""),
 +            "priority": entry.get("priority"),
@@ -623,6 +713,21 @@ index 7d28ce076..59e2c6386 100644
 +    except Exception:
 +        return ""
 +    return ""
++
++
++def _resolve_codex_label(session_label: str | None, existing_label: str) -> str:
++    """Determine the label for a new Codex credential added via dashboard.
++
++    - If user explicitly provided a non-empty label, use it (trimmed, bounded to 64).
++    - If the credential is a re-auth of an existing one, preserve its label.
++    - Otherwise, use a neutral fallback (no GptN auto-increment).
++    """
++    session_label = (session_label or "").strip()[:64]
++    if session_label:
++        return session_label
++    if existing_label:
++        return existing_label
++    return "ChatGPT Account"
 +
 +
 +@app.get("/api/model/quota")
@@ -771,7 +876,34 @@ index 7d28ce076..59e2c6386 100644
  @app.get("/api/model/auxiliary")
  def get_auxiliary_models():
      """Return current auxiliary task assignments.
-@@ -2237,34 +2528,78 @@ def _codex_full_login_worker(session_id: str) -> None:
+@@ -1813,12 +2120,14 @@ def _submit_anthropic_pkce(session_id: str, code_input: str) -> Dict[str, Any]:
+     return {"ok": True, "status": "approved"}
+ 
+ 
+-async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
++async def _start_device_code_flow(provider_id: str, label: str = "") -> Dict[str, Any]:
+     """Initiate a device-code flow (Nous, OpenAI Codex, or MiniMax).
+ 
+     Calls the provider's device-auth endpoint via the existing CLI helpers,
+     then spawns a background poller. Returns the user-facing display fields
+     so the UI can render the verification page link + user code.
++
++    ``label`` is an optional account name sent by the dashboard operator.
+     """
+     if provider_id == "nous":
+         from hermes_cli.auth import (
+@@ -1876,7 +2185,9 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
+ 
+     if provider_id == "openai-codex":
+         # Codex uses fixed OpenAI device-auth endpoints; reuse the helper.
+-        sid, _ = _new_oauth_session("openai-codex", "device_code")
++        sid, sess = _new_oauth_session("openai-codex", "device_code")
++        if label:
++            sess["label"] = label
+         # Use the helper but in a thread because it polls inline.
+         # We can't extract just the start step without refactoring auth.py,
+         # so we run the full helper in a worker and proxy the user_code +
+@@ -2237,34 +2548,85 @@ def _codex_full_login_worker(session_id: str) -> None:
          if not access_token:
              raise RuntimeError("token exchange did not return access_token")
  
@@ -812,8 +944,7 @@ index 7d28ce076..59e2c6386 100644
 +                    existing = candidate
 +                    break
 +        if existing is not None:
-+            entry = _dc_replace(
-+                existing,
++            kwargs = dict(
 +                access_token=access_token,
 +                refresh_token=refresh_token or existing.refresh_token,
 +                base_url=base_url,
@@ -825,6 +956,14 @@ index 7d28ce076..59e2c6386 100644
 +                last_error_reset_at=None,
 +                extra={**(existing.extra or {}), "account_fingerprint": fingerprint},
 +            )
++            # Use _resolve_codex_label for consistent label handling
++            existing_label = existing.label or ""
++            resolved_label = _resolve_codex_label(
++                sess.get("label") if sess else None, existing_label
++            )
++            if resolved_label != existing_label:
++                kwargs["label"] = resolved_label
++            entry = _dc_replace(existing, **kwargs)
 +            pool._replace_entry(existing, entry)
 +            pool._persist()
 +            action = "refreshed"
@@ -832,7 +971,7 @@ index 7d28ce076..59e2c6386 100644
 +            entry = PooledCredential(
 +                provider="openai-codex",
 +                id=_uuid.uuid4().hex[:6],
-+                label=f"Gpt{len(pool.entries()) + 1}",
++                label=_resolve_codex_label(sess.get("label") if sess else None, ""),
 +                auth_type=AUTH_TYPE_OAUTH,
 +                priority=0,
 +                source=f"{SOURCE_MANUAL}:dashboard_device_code",
@@ -864,7 +1003,33 @@ index 7d28ce076..59e2c6386 100644
      except Exception as e:
          _log.warning("codex device-code worker failed (session=%s): %s", session_id, e)
          with _oauth_sessions_lock:
-@@ -3294,15 +3629,24 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
+@@ -2289,6 +2651,16 @@ async def start_oauth_login(provider_id: str, request: Request):
+             detail=f"{provider_id} uses an external CLI; run `{catalog_entry['cli_command']}` manually",
+         )
+     try:
++        # Read optional label from body (dashboard sends JSON with optional "label" field).
++        label = ""
++        content_type = (request.headers.get("content-type") or "").lower()
++        if content_type.startswith("application/json"):
++            try:
++                body = await request.json()
++                label = (body.get("label") or "").strip()[:64] if isinstance(body, dict) else ""
++            except Exception:
++                label = ""
++
+         # The pkce branch is gated on provider_id == "anthropic" because
+         # `_start_anthropic_pkce()` is hardcoded to the Anthropic flow.
+         # Routing any other future pkce-flagged provider through it would
+@@ -2298,7 +2670,7 @@ async def start_oauth_login(provider_id: str, request: Request):
+         if catalog_entry["flow"] == "pkce" and provider_id == "anthropic":
+             return _start_anthropic_pkce()
+         if catalog_entry["flow"] == "device_code":
+-            return await _start_device_code_flow(provider_id)
++            return await _start_device_code_flow(provider_id, label=label)
+     except HTTPException:
+         raise
+     except Exception as e:
+@@ -3294,15 +3666,24 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
  
  
  def _is_public_bind() -> bool:
@@ -892,7 +1057,7 @@ index 7d28ce076..59e2c6386 100644
      """
      if _is_public_bind():
          return True
-@@ -4544,6 +4888,7 @@ def start_server(
+@@ -4544,6 +4925,7 @@ def start_server(
      # PTY child uses to publish events to the dashboard sidebar.
      app.state.bound_host = host
      app.state.bound_port = port
@@ -1653,6 +1818,170 @@ index 9c36706f7..25dbf6ce9 100644
 +
 +    assert out == "5h 34% left"
 +    assert calls == [{"timeout_seconds": 3.0, "credential_id": "b415a1"}]
+diff --git a/tests/hermes_cli/test_kanban_core_functionality.py b/tests/hermes_cli/test_kanban_core_functionality.py
+index a97ddbbe1..1b55599f8 100644
+--- a/tests/hermes_cli/test_kanban_core_functionality.py
++++ b/tests/hermes_cli/test_kanban_core_functionality.py
+@@ -4419,3 +4419,159 @@ def test_dispatch_once_stale_disabled_when_timeout_zero(kanban_home, monkeypatch
+         )
+         assert res.stale == [], "stale_timeout_seconds=0 should disable detection"
+         assert kb.get_task(conn, t).status == "running"
++
++# ---------------------------------------------------------------------------
++# Protocol violation sticky-block tests
++# ---------------------------------------------------------------------------
++
++
++def test_protocol_violation_block_is_sticky_standalone(kanban_home):
++    """A standalone task (no parents) auto-blocked after a protocol violation
++    must stay ``blocked`` across ``recompute_ready`` ticks.
++
++    Regression test for the protocol-violation loop: a worker exits rc=0
++    without calling ``kanban_complete`` or ``kanban_block``, the dispatcher
++    auto-blocks via ``_record_task_failure(failure_limit=1)``, but
++    ``_has_sticky_block`` must return ``True`` so ``recompute_ready`` does
++    NOT promote the task back to ``ready`` for respawn.
++
++    Without the fix ``protocol_violation`` was NOT treated as a sticky
++    trigger, so ``recompute_ready`` would promote ``blocked`` -> ``ready``
++    (``all([])`` = ``True`` for a task with no parents) and the loop would
++    repeat indefinitely.
++    """
++    conn = kb.connect()
++    try:
++        # Create a standalone task (no parents).
++        tid = kb.create_task(conn, title="quiet-exit")
++
++        # Simulate the state after detect_crashed_workers +
++        # _record_task_failure process a protocol violation:
++        # status='blocked', with protocol_violation + gave_up events
++        # (exactly what the production code writes).
++        conn.execute(
++            "UPDATE tasks SET status='blocked', consecutive_failures=1, "
++            "last_failure_error='worker exited cleanly without calling "
++            "kanban_complete or kanban_block' WHERE id=?",
++            (tid,),
++        )
++        now = int(time.time())
++        conn.execute(
++            "INSERT INTO task_events (task_id, kind, payload, created_at) "
++            "VALUES (?, 'protocol_violation', '{}', ?)",
++            (tid, now),
++        )
++        conn.execute(
++            "INSERT INTO task_events (task_id, kind, payload, created_at) "
++            "VALUES (?, 'gave_up', '{}', ?)",
++            (tid, now + 1),
++        )
++        conn.commit()
++
++        # Now run recompute_ready — it must NOT promote this task.
++        promoted = kb.recompute_ready(conn)
++        assert promoted == 0, (
++            f"protocol-violation blocked task should NOT be promoted, "
++            f"got {promoted} promotions"
++        )
++        task = kb.get_task(conn, tid)
++        assert task.status == "blocked", (
++            f"expected status='blocked', got {task.status!r}"
++        )
++    finally:
++        conn.close()
++
++
++def test_protocol_violation_block_is_sticky_with_parents_done(kanban_home):
++    """A task with completed parents that gets auto-blocked after a
++    protocol violation must stay ``blocked`` — even though its parents
++    are done, the ``protocol_violation`` event makes the block sticky.
++
++    This is the most common real-world scenario: a review task is a child
++    of a planning task.  If the review worker exits without completing,
++    completing the parent should NOT auto-promote the review.
++    """
++    conn = kb.connect()
++    try:
++        parent = kb.create_task(conn, title="parent")
++        child = kb.create_task(conn, title="child-quiet-exit", parents=[parent])
++        kb.complete_task(conn, parent, result="ok")
++
++        # Same protocol-violation simulation as above.
++        conn.execute(
++            "UPDATE tasks SET status='blocked', consecutive_failures=1, "
++            "last_failure_error='worker exited cleanly without calling "
++            "kanban_complete or kanban_block' WHERE id=?",
++            (child,),
++        )
++        now = int(time.time())
++        conn.execute(
++            "INSERT INTO task_events (task_id, kind, payload, created_at) "
++            "VALUES (?, 'protocol_violation', '{}', ?)",
++            (child, now),
++        )
++        conn.execute(
++            "INSERT INTO task_events (task_id, kind, payload, created_at) "
++            "VALUES (?, 'gave_up', '{}', ?)",
++            (child, now + 1),
++        )
++        conn.commit()
++
++        # recompute_ready should NOT promote — sticky block.
++        promoted = kb.recompute_ready(conn)
++        assert promoted == 0, (
++            f"protocol-violation blocked child should NOT be promoted "
++            f"even with parent done, got {promoted} promotions"
++        )
++        task = kb.get_task(conn, child)
++        assert task.status == "blocked", (
++            f"expected status='blocked', got {task.status!r}"
++        )
++    finally:
++        conn.close()
++
++
++def test_protocol_violation_block_cleared_by_unblock(kanban_home):
++    """After an operator unblocks a protocol-violation-sticky task,
++    ``recompute_ready`` can promote it again for a fresh retry.
++    """
++    conn = kb.connect()
++    try:
++        parent = kb.create_task(conn, title="parent")
++        child = kb.create_task(conn, title="child-unblock-test", parents=[parent])
++        kb.complete_task(conn, parent, result="ok")
++
++        # Simulate protocol-violation auto-block.
++        conn.execute(
++            "UPDATE tasks SET status='blocked', consecutive_failures=1, "
++            "last_failure_error='protocol violation' WHERE id=?",
++            (child,),
++        )
++        now = int(time.time())
++        conn.execute(
++            "INSERT INTO task_events (task_id, kind, payload, created_at) "
++            "VALUES (?, 'protocol_violation', '{}', ?)",
++            (child, now),
++        )
++        conn.execute(
++            "INSERT INTO task_events (task_id, kind, payload, created_at) "
++            "VALUES (?, 'gave_up', '{}', ?)",
++            (child, now + 1),
++        )
++        conn.commit()
++
++        # First tick: task should stay blocked.
++        assert kb.recompute_ready(conn) == 0
++        assert kb.get_task(conn, child).status == "blocked"
++
++        # Operator unblocks.
++        assert kb.unblock_task(conn, child)
++        assert kb.get_task(conn, child).status == "ready"
++
++        # Second tick: task should be eligible for promotion (but it's
++        # already 'ready', so no promotion needed — verify consistency).
++        promoted = kb.recompute_ready(conn)
++        assert promoted == 0  # already ready, nothing to promote
++        assert kb.get_task(conn, child).status == "ready"
++    finally:
++        conn.close()
 diff --git a/tests/hermes_cli/test_runtime_provider_resolution.py b/tests/hermes_cli/test_runtime_provider_resolution.py
 index 394216c91..0e43c24e3 100644
 --- a/tests/hermes_cli/test_runtime_provider_resolution.py
@@ -1792,6 +2121,123 @@ index bfc70cd0f..e47a27ab0 100644
          )
  
          answer = (response.choices[0].message.content or "").strip().upper()
+diff --git a/web/src/components/OAuthLoginModal.tsx b/web/src/components/OAuthLoginModal.tsx
+index f4eb610c1..2a2b626e6 100644
+--- a/web/src/components/OAuthLoginModal.tsx
++++ b/web/src/components/OAuthLoginModal.tsx
+@@ -25,7 +25,8 @@ type Phase =
+   | "error";
+ 
+ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
+-  const [phase, setPhase] = useState<Phase>("starting");
++  const [phase, setPhase] = useState<Phase>("idle");
++  const [label, setLabel] = useState("");
+   const [start, setStart] = useState<OAuthStartResponse | null>(null);
+   const [pkceCode, setPkceCode] = useState("");
+   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+@@ -34,11 +35,10 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
+   const pollTimer = useRef<number | null>(null);
+   const { t } = useI18n();
+ 
+-  // Initiate flow on mount
+-  useEffect(() => {
+-    isMounted.current = true;
++  const startLogin = (accountLabel: string) => {
++    setPhase("starting");
+     api
+-      .startOAuthLogin(provider.id)
++      .startOAuthLogin(provider.id, accountLabel.trim() || undefined)
+       .then((resp) => {
+         if (!isMounted.current) return;
+         setStart(resp);
+@@ -55,11 +55,15 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
+         setPhase("error");
+         setErrorMsg(`Failed to start login: ${e}`);
+       });
++  };
++
++  // Cleanup on unmount
++  useEffect(() => {
++    isMounted.current = true;
+     return () => {
+       isMounted.current = false;
+       if (pollTimer.current !== null) window.clearInterval(pollTimer.current);
+     };
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []);
+ 
+   // Tick the countdown
+@@ -201,6 +205,31 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
+               )}
+           </div>
+ 
++          {phase === "idle" && (
++            <div className="flex flex-col gap-3 py-2">
++              <div className="flex flex-col gap-1">
++                <label
++                  htmlFor="oauth-account-label"
++                  className="text-xs text-muted-foreground"
++                >
++                  Account name (optional)
++                </label>
++                <Input
++                  id="oauth-account-label"
++                  value={label}
++                  onChange={(e) => setLabel(e.target.value)}
++                  placeholder='e.g. "Swarm", "Personal", "Work"'
++                  onKeyDown={(e) => {
++                    if (e.key === "Enter") startLogin(label);
++                  }}
++                />
++              </div>
++              <Button onClick={() => startLogin(label)}>
++                {t.oauth.login}
++              </Button>
++            </div>
++          )}
++
+           {phase === "starting" && (
+             <div className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
+               <Spinner />
+@@ -328,37 +357,7 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
+                     setErrorMsg(null);
+                     setStart(null);
+                     setPkceCode("");
+-                    setPhase("starting");
+-                    api
+-                      .startOAuthLogin(provider.id)
+-                      .then((resp) => {
+-                        if (!isMounted.current) return;
+-                        setStart(resp);
+-                        setSecondsLeft(resp.expires_in);
+-                        setPhase(
+-                          resp.flow === "device_code"
+-                            ? "polling"
+-                            : "awaiting_user",
+-                        );
+-                        if (resp.flow === "pkce") {
+-                          window.open(
+-                            resp.auth_url,
+-                            "_blank",
+-                            "noopener,noreferrer",
+-                          );
+-                        } else {
+-                          window.open(
+-                            resp.verification_url,
+-                            "_blank",
+-                            "noopener,noreferrer",
+-                          );
+-                        }
+-                      })
+-                      .catch((e) => {
+-                        if (!isMounted.current) return;
+-                        setPhase("error");
+-                        setErrorMsg(`${t.common.retry} failed: ${e}`);
+-                      });
++                    startLogin(label);
+                   }}
+                 >
+                   {t.common.retry}
 diff --git a/web/src/components/OAuthProvidersCard.tsx b/web/src/components/OAuthProvidersCard.tsx
 index 987f4c0ee..20bef1c94 100644
 --- a/web/src/components/OAuthProvidersCard.tsx
@@ -2003,7 +2449,7 @@ index 987f4c0ee..20bef1c94 100644
    );
  }
 diff --git a/web/src/lib/api.ts b/web/src/lib/api.ts
-index b7e2ba6c5..e58a8cd4b 100644
+index b7e2ba6c5..95049f24e 100644
 --- a/web/src/lib/api.ts
 +++ b/web/src/lib/api.ts
 @@ -92,6 +92,24 @@ export const api = {
@@ -2031,6 +2477,24 @@ index b7e2ba6c5..e58a8cd4b 100644
    getAuxiliaryModels: () => fetchJSON<AuxiliaryModelsResponse>("/api/model/auxiliary"),
    setModelAssignment: (body: ModelAssignmentRequest) =>
      fetchJSON<ModelAssignmentResponse>("/api/model/set", {
+@@ -223,7 +241,7 @@ export const api = {
+       },
+     );
+   },
+-  startOAuthLogin: async (providerId: string) => {
++  startOAuthLogin: async (providerId: string, label?: string) => {
+     const token = await getSessionToken();
+     return fetchJSON<OAuthStartResponse>(
+       `/api/providers/oauth/${encodeURIComponent(providerId)}/start`,
+@@ -233,7 +251,7 @@ export const api = {
+           "Content-Type": "application/json",
+           [SESSION_HEADER]: token,
+         },
+-        body: "{}",
++        body: JSON.stringify({ label: label || "" }),
+       },
+     );
+   },
 @@ -649,6 +667,70 @@ export interface AuxiliaryModelsResponse {
    main: { provider: string; model: string };
  }
@@ -2103,7 +2567,7 @@ index b7e2ba6c5..e58a8cd4b 100644
    scope: "main" | "auxiliary";
    provider: string;
 diff --git a/web/src/pages/ModelsPage.tsx b/web/src/pages/ModelsPage.tsx
-index 1359cbd9f..9112d0647 100644
+index 1359cbd9f..abe0f1aff 100644
 --- a/web/src/pages/ModelsPage.tsx
 +++ b/web/src/pages/ModelsPage.tsx
 @@ -16,6 +16,8 @@ import { api } from "@/lib/api";
@@ -2221,7 +2685,7 @@ index 1359cbd9f..9112d0647 100644
 +              const isSelected = account.id === selectedId || Boolean(account.selected && !selectedId);
 +              const effectiveQuota = isSelected && quota?.available ? quota : account.quota;
 +              const buckets = effectiveQuota?.buckets ?? [];
-+              const label = account.label || `Gpt${account.index}`;
++              const label = account.label || "ChatGPT Account";
 +              const provider = mainModelEntry?.provider || (mainModelEntry ? modelVendor(mainModelEntry.model) : main?.provider || "openai-codex");
 +              const caps = mainModelEntry?.capabilities;
 +              const mainAuxTask = mainModelEntry

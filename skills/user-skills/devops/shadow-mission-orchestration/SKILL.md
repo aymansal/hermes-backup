@@ -22,6 +22,7 @@ Mandatory linked references:
 - `references/codex-quota-rotation-ops.md` — load/read this for Hermes Codex/ChatGPT multi-account quota rotation, dashboard quota display, weekly-vs-5h quota gates, Morocco warmup timers, and restart/activation safety.
 - `references/telegram-topic-command-center.md` — load/read this when Ayman wants a Telegram supergroup with many topics as separate Hermes command lanes, topic-specific Skill Rune bindings, or topic-targeted cron/raid delivery.
 - `references/ams-warp-browser-crawler.md` — load/read this for AMS/Austrian job-board browser/crawler missions. It captures the WARP route test, AMS robots/API constraints, and the safe browser-use vs Scrapy split.
+- `references/cron-session-memory-curator-coverage.md` — load/read this when creating, reviewing, or debugging a daily session-memory curator Raid Timer. It captures the pitfall that `session_search()` default browse returns only 3 sessions, the need to enumerate `state.db` by timestamp, cluster related sessions, and verify delivery target/output after patching.
 
 The operating model:
 
@@ -113,6 +114,8 @@ Examples:
 - Daily session-memory curation into Holographic/fact_store.
 
 When a Kanban worker designs or creates a Raid Timer, remember that the worker profile may store cron state under its own profile directory. Igris must verify the final timer from the runtime/default profile before reporting success. If the timer must be visible to the live gateway, prefer creating the final cron job from Igris/operator context with the native cronjob tool, then let a reviewer certify the default-profile job id, schedule, provider/model, enabled state, and delivery route.
+
+For session-memory curator Raid Timers, do not certify success from `last_status=ok` alone. A run can store useful facts while failing coverage. Verify the actual target-window session count from `~/.hermes/state.db` and compare it to the sessions the curator claims it inspected. `session_search()` with no arguments only browses the 3 most recent sessions; it is not a full "last 24 hours" scan. See `references/cron-session-memory-curator-coverage.md` before creating or judging this class of cron job.
 
 ### 5. Telegram topic command-center missions
 

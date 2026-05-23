@@ -25,7 +25,8 @@ type Phase =
   | "error";
 
 export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
-  const [phase, setPhase] = useState<Phase>("starting");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [label, setLabel] = useState("");
   const [start, setStart] = useState<OAuthStartResponse | null>(null);
   const [pkceCode, setPkceCode] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -34,11 +35,10 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
   const pollTimer = useRef<number | null>(null);
   const { t } = useI18n();
 
-  // Initiate flow on mount
-  useEffect(() => {
-    isMounted.current = true;
+  const startLogin = (accountLabel: string) => {
+    setPhase("starting");
     api
-      .startOAuthLogin(provider.id)
+      .startOAuthLogin(provider.id, accountLabel.trim() || undefined)
       .then((resp) => {
         if (!isMounted.current) return;
         setStart(resp);
@@ -55,11 +55,15 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
         setPhase("error");
         setErrorMsg(`Failed to start login: ${e}`);
       });
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
     return () => {
       isMounted.current = false;
       if (pollTimer.current !== null) window.clearInterval(pollTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Tick the countdown
@@ -201,6 +205,31 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
               )}
           </div>
 
+          {phase === "idle" && (
+            <div className="flex flex-col gap-3 py-2">
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="oauth-account-label"
+                  className="text-xs text-muted-foreground"
+                >
+                  Account name (optional)
+                </label>
+                <Input
+                  id="oauth-account-label"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder='e.g. "Swarm", "Personal", "Work"'
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") startLogin(label);
+                  }}
+                />
+              </div>
+              <Button onClick={() => startLogin(label)}>
+                {t.oauth.login}
+              </Button>
+            </div>
+          )}
+
           {phase === "starting" && (
             <div className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
               <Spinner />
@@ -328,37 +357,7 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
                     setErrorMsg(null);
                     setStart(null);
                     setPkceCode("");
-                    setPhase("starting");
-                    api
-                      .startOAuthLogin(provider.id)
-                      .then((resp) => {
-                        if (!isMounted.current) return;
-                        setStart(resp);
-                        setSecondsLeft(resp.expires_in);
-                        setPhase(
-                          resp.flow === "device_code"
-                            ? "polling"
-                            : "awaiting_user",
-                        );
-                        if (resp.flow === "pkce") {
-                          window.open(
-                            resp.auth_url,
-                            "_blank",
-                            "noopener,noreferrer",
-                          );
-                        } else {
-                          window.open(
-                            resp.verification_url,
-                            "_blank",
-                            "noopener,noreferrer",
-                          );
-                        }
-                      })
-                      .catch((e) => {
-                        if (!isMounted.current) return;
-                        setPhase("error");
-                        setErrorMsg(`${t.common.retry} failed: ${e}`);
-                      });
+                    startLogin(label);
                   }}
                 >
                   {t.common.retry}

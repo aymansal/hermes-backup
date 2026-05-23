@@ -27,6 +27,8 @@ GPT-5.5 review is not automatically required for simple research/scraping that o
 
 ## How GPT-5.5 should review
 
+Every non-trivial worker/task-agent result in Ayman's Kanban raids must pass through a reviewer before the General treats it as accepted. A worker finishing a card is not enough by itself.
+
 The reviewer must review only what the worker produced. It should not redo the task.
 
 Review inputs should be compact:
@@ -41,9 +43,17 @@ Review inputs should be compact:
 Reviewer verdict format:
 
 - `PASS` when the worker output satisfies the card and risk is acceptable.
-- `BLOCKED` with exact failure reasons and a fix prompt when it does not.
+- `BLOCKED` when the worker output does not match the request, misses acceptance criteria, has unsafe changes, lacks tests/evidence, or otherwise needs correction.
 
-If blocked, create an iteration/fix card routed back to the same worker model/profile that failed. Escalate models only after repeated failed iterations or explicit user approval.
+A `BLOCKED` review must include:
+
+- exact failure reasons
+- affected files/lines or artifacts when available
+- what was expected versus what was delivered
+- concrete redo/fix instructions the coder shadow can execute
+- tests or verification required before re-review
+
+If blocked, create an iteration/fix card routed back to the same worker model/profile that failed, carrying the reviewer’s exact findings and redo instructions. Escalate models only after repeated failed iterations or explicit user approval.
 
 ## Approval / YOLO discipline
 
@@ -60,6 +70,10 @@ Ayman permits YOLO or auto-approval for low-risk inspection commands, but the op
 - any irreversible or risky action.
 
 If a Telegram approval prompt says `Always`, do not assume it is acceptable for high-warning/security-sensitive commands. Explain the scope and prefer safer/local checks when possible. Treat YOLO as reducing popup friction, not as permission to skip the operator's explicit approval gate for disruptive work.
+
+## Automation minimalism for Ayman
+
+For Raid Timers / cron / automation changes, separate the essential action from convenience refreshes or status checks before implementing. If Ayman can already see the state in the Shadow Realm dashboard, do not add or keep extra refresh-only automation unless he explicitly wants it. Example: Codex quota alignment needs the 09:00 Morocco all-account warmup to start 5h timers; a 14:00 refresh-only job is optional dashboard polish and should be removed if Ayman says he will check manually.
 
 ## Reporting expectations
 

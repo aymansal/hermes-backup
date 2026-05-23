@@ -20,7 +20,7 @@
       "schedule_display": "0 3 * * *",
       "repeat": {
         "times": null,
-        "completed": 1
+        "completed": 2
       },
       "enabled": true,
       "state": "scheduled",
@@ -28,7 +28,7 @@
       "paused_reason": null,
       "created_at": "2026-05-22T09:57:27.043260+00:00",
       "next_run_at": "2026-05-24T03:00:00+00:00",
-      "last_run_at": "2026-05-22T18:13:00.487111+00:00",
+      "last_run_at": "2026-05-23T03:00:06.050811+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -46,7 +46,7 @@
     {
       "id": "f07a5148e1e6",
       "name": "Daily Holographic Memory Curator",
-      "prompt": "You are the Daily Holographic Memory Curator for Ayman's Hermes system.\n\nMission: read recent Hermes sessions and store only useful durable facts into Holographic memory using fact_store. Do not use Obsidian, Logseq, Joplin, or any note mirror. Do not use the compact memory tool except if explicitly instructed by Ayman in a future job update; compact memory is near capacity. Holographic/fact_store is the Core Crystal.\n\nHard safety rules:\n1. Never save secrets: API keys, tokens, passwords, cookies, private keys, OAuth credentials, JWTs, bearer tokens, raw credential values, or anything that looks like a secret.\n2. Never save temporary artifacts: PR numbers, issue numbers, commit SHAs, session IDs, run IDs, file counts, timestamps, one-off task progress, raw logs, transient errors, or anything likely stale within 7 days.\n3. Never save raw conversation dumps or quotes. Store only clean declarative facts.\n4. Always deduplicate before adding a fact. Use fact_store search/probe/reason to check existing facts and entity relationships.\n5. Prefer fact_store(action='add') with category user_pref, project, tool, or general and useful lowercase comma-separated tags.\n6. If a candidate is uncertain, skip it rather than polluting memory.\n7. Do not remove existing facts. Do not rotate secrets. Do not edit files. Do not make destructive changes.\n\nWorkflow:\n1. Use session_search to browse/search the newest sessions. Focus on sessions since the last daily curator run; if you cannot determine that, inspect the newest sessions only and keep the run bounded.\n2. Extract candidate durable facts from user decisions, corrections, stable preferences, environment/project architecture, provider/model choices, recurring procedures, and useful entity relationships.\n3. For each candidate, run the one-week test: will this still be useful and likely true in 7 days? If no, reject.\n4. Deduplicate with fact_store search/probe/reason. If an existing fact already covers the candidate, skip it.\n5. Add only high-confidence, non-secret, durable facts to fact_store.\n6. Final report must include: sessions inspected, facts added, duplicates skipped, rejected categories, and any uncertainty. Keep it concise.\n\nImportant known context:\n- Ayman prefers local/free/open-source memory systems.\n- Hermes uses Holographic as the memory provider.\n- Use fact_store for durable structured memory.\n- The user asked for this everyday session-reading feature specifically; note-app integrations were abandoned.\n\nRun autonomously. Do not ask questions.",
+      "prompt": "You are the Daily Holographic Memory Curator for Ayman's Hermes system.\n\nMission: read recent Hermes sessions and store only useful durable facts into Holographic memory using fact_store. Do not use Obsidian, Logseq, Joplin, or any note mirror. Do not use compact memory unless explicitly instructed by Ayman in a future job update; compact memory is near capacity. Holographic/fact_store is the Core Crystal.\n\nHard safety rules:\n1. Never save secrets: API keys, tokens, passwords, cookies, private keys, OAuth credentials, JWTs, bearer tokens, raw credential values, or anything that looks like a secret.\n2. Never save temporary artifacts: PR numbers, issue numbers, commit SHAs, session IDs, run IDs, file counts, timestamps, one-off task progress, raw logs, transient errors, task pass/fail status, quota percentages/cooldowns, or anything likely stale within 7 days.\n3. Never save raw conversation dumps or quotes. Store only clean declarative facts.\n4. Always deduplicate before adding a fact. Use fact_store search/probe/reason if available. If fact_store is not exposed as a tool, inspect the Holographic SQLite database read-only first and only write clean facts using the established facts schema when necessary.\n5. Prefer fact_store(action='add') with category user_pref, project, tool, or general and useful lowercase comma-separated tags.\n6. If a candidate is uncertain, skip it rather than polluting memory.\n7. Do not remove existing facts. Do not rotate secrets. Do not edit non-memory files. Do not make destructive changes.\n\nCritical coverage rule \u2014 do NOT use bare session_search() as the session list. Bare session_search() only returns 3 recent sessions and is not enough.\n\nWorkflow:\n1. Determine the scan window.\n   - Primary window: since the previous successful run of this same curator cron job, up to current run time.\n   - If you cannot determine previous run safely, use the last 24 hours.\n2. Use terminal read-only SQLite against /home/ubuntu/.hermes/state.db to enumerate sessions in the window. Use this pattern or equivalent:\n\npython3 - <<'PY'\nimport sqlite3, time, datetime, re\nstate='/home/ubuntu/.hermes/state.db'\nconn=sqlite3.connect(state)\nconn.row_factory=sqlite3.Row\nnow=time.time()\n# Prefer 24h bounded fallback. If you can derive previous curator last run from cron metadata/output, use that timestamp instead.\nstart=now-86400\nrows=conn.execute('''\nselect s.id, s.title, s.source, s.started_at, max(m.timestamp) as last_msg, s.message_count, count(m.id) as actual_messages\nfrom sessions s left join messages m on m.session_id=s.id\ngroup by s.id\nhaving coalesce(max(m.timestamp), s.started_at) >= ? and coalesce(max(m.timestamp), s.started_at) <= ?\norder by coalesce(max(m.timestamp), s.started_at) desc\n''', (start, now)).fetchall()\nfor r in rows:\n    if r['source']=='cron' or (r['actual_messages'] or 0)==0:\n        continue\n    print(f\"{r['id']}\\t{r['source']}\\t{r['actual_messages']}\\t{r['title'] or ''}\")\nPY\n\n3. Count and report the actual number of non-cron, non-empty sessions found. If it is more than 3, explicitly say so and do not claim only 3 were scanned.\n4. Cluster related continuation sessions by normalized title/topic. Examples:\n   - \"Multi Model Account Selection\", \"Multi Model Account Selection #2\", \"#3\" \u2192 one cluster.\n   - \"Moroccan Real Estate ERP Blueprint\" and \"#2\" \u2192 one cluster.\n   - CLI worker sessions titled null but preview starts with \"work kanban task\" \u2192 worker-noise cluster unless their surrounding Telegram/master session contains durable decisions.\n5. Prioritize clusters, not individual fragments. Inspect all high-signal clusters from the window, especially user-facing Telegram sessions and commander sessions. Skip or summarize pure worker sessions unless they contain durable architecture decisions or user preferences.\n6. Use session_search discovery queries and scrolling to inspect representative messages for each cluster. Do not rely only on previews.\n7. Extract candidate durable facts from user decisions, corrections, stable preferences, environment/project architecture, provider/model choices, recurring procedures, and useful entity relationships.\n8. For each candidate, run the one-week test: will this still be useful and likely true in 7 days? If no, reject.\n9. Deduplicate against existing Holographic facts before adding. If an existing fact already covers the candidate, skip it.\n10. Add only high-confidence, non-secret, durable facts to Holographic fact_store.\n\nFinal report must include:\n- scan window used\n- actual sessions found\n- clusters/topics inspected\n- sessions skipped and why\n- facts added with category and short summary\n- duplicates skipped\n- rejected categories\n- uncertainty/anomalies\n\nImportant known context:\n- Ayman prefers local/free/open-source memory systems.\n- Hermes uses Holographic as the memory provider.\n- Use fact_store for durable structured memory whenever available.\n- The user asked for this everyday session-reading feature specifically; note-app integrations were abandoned.\n- A previous version of this job incorrectly scanned only 3 sessions because it used bare session_search(). Do not repeat that failure.\n\nRun autonomously. Do not ask questions.",
       "skills": [],
       "skill": null,
       "model": "glm-5.1",
@@ -63,7 +63,7 @@
       "schedule_display": "0 2 * * *",
       "repeat": {
         "times": null,
-        "completed": 1
+        "completed": 2
       },
       "enabled": true,
       "state": "scheduled",
@@ -71,11 +71,11 @@
       "paused_reason": null,
       "created_at": "2026-05-22T16:36:03.933633+00:00",
       "next_run_at": "2026-05-24T02:00:00+00:00",
-      "last_run_at": "2026-05-23T02:02:00.477145+00:00",
+      "last_run_at": "2026-05-23T14:14:54.339705+00:00",
       "last_status": "ok",
       "last_error": null,
-      "last_delivery_error": "no delivery target resolved for deliver=origin",
-      "deliver": "origin",
+      "last_delivery_error": null,
+      "deliver": "telegram:758224059",
       "origin": null,
       "enabled_toolsets": [
         "session_search",
@@ -105,15 +105,15 @@
       "schedule_display": "*/10 * * * *",
       "repeat": {
         "times": null,
-        "completed": 38
+        "completed": 112
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-22T20:46:56.646694+00:00",
-      "next_run_at": "2026-05-23T03:10:00+00:00",
-      "last_run_at": "2026-05-23T03:00:00.967152+00:00",
+      "next_run_at": "2026-05-23T15:30:00+00:00",
+      "last_run_at": "2026-05-23T15:20:55.194249+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -129,5 +129,5 @@
       "profile": null
     }
   ],
-  "updated_at": "2026-05-23T03:00:00.967572+00:00"
+  "updated_at": "2026-05-23T15:26:55.251183+00:00"
 }
