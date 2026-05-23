@@ -27,7 +27,9 @@ Examples:
 
 Pitfall learned: saving a preference in memory is not the same as updating `SOUL.md`. The user considers that a sloppy half mission.
 
-## Read-only first, then write when clearly requested
+## Read-only first, then explicit approval for side effects
+
+Ayman's operational rule is strict: for Hermes config edits, `.env` writes, package installs, service/gateway/dashboard restarts, cron creation/runs, GitHub pushes, or any other side effect, first report the exact proposed action, what it touches, risk/rollback, and wait for Ayman's approval. A pasted Access Key plus "use it" is not blanket permission to store it, switch providers, or restart services; ask which steps he approves. After approval, execute and verify.
 
 Default diagnostic checks before Hermes config changes:
 
@@ -146,7 +148,7 @@ Report only the provider/status/config keys. Never expose secrets from `.env` du
 
 ## Hermes auxiliary model routing / quota control
 
-Load `hermes-agent` before answering or acting. Use this section when Ayman wants to reduce Codex/OpenAI quota burn by moving Hermes auxiliary work — compression, web extraction, title generation, approvals, memory review, or curator review — to cheaper providers such as OpenCode Go.
+Load `hermes-agent` before answering or acting. Use this section when Ayman wants to reduce Codex/OpenAI quota burn by moving Hermes auxiliary work — compression, web extraction, title generation, approvals, memory review, curator review — to cheaper providers such as OpenCode Go, or when he reports dashboard/Telegram Codex quota display mismatches.
 
 Workflow discipline:
 
@@ -348,13 +350,15 @@ See `references/private-recovery-backup-vault.md` for the full recovery-vault sh
 
 ## User communication style during these tasks
 
-The user wants direct, tactical execution:
+The user wants direct, tactical execution under his command authority:
 
-- Do the action when safe and explicitly requested.
+- Ayman decides operational steps; the assistant reports and waits for approval before side effects.
+- Do the action when safe and explicitly approved/requested.
 - Verify results before claiming success.
 - Avoid long explanations while they are trying to get a command.
 - If they ask for “command to see all of it”, give the exact command first.
 - If a setup needs a missing token/API key, stop and ask for the Access Key.
+- Do not frame yourself as the decision-maker; the Shadow System Operator/General executes the Shadow Monarch's decisions.
 
 Use Shadow System Operator flavor sparingly: practical report first, flavor second.
 
@@ -362,6 +366,6 @@ Use Shadow System Operator flavor sparingly: practical report first, flavor seco
 
 - `references/session-2026-05-21-persona-profile-telegram.md` — session-specific lessons: SOUL.md vs memory, operator profile split, Telegram direct env fallback, Holographic trust correction, Shadow Archive memory-law insertion, Shadow Monarch title correction, and native Hermes Web Dashboard vs Open WebUI distinction.
 - `references/native-dashboard-tailscale-shadow-realm.md` — persistent native Hermes dashboard (“Shadow Realm”) over Tailscale via systemd user service, verification commands, reboot-survival checks, and security caveats.
-- `references/native-dashboard-codex-quota.md` — Codex/ChatGPT quota display in the native dashboard: live `/usage` endpoint, 5-second polling, sanitized data only, and Ayman’s preference to show remaining quota (`% left`) rather than used quota.
+- `references/native-dashboard-codex-quota.md` — Codex/ChatGPT quota display in the native dashboard and Telegram runtime footer: live `/usage` endpoint, 5-second dashboard polling, sanitized data only, remaining quota (`% left`) preference, and timezone mismatch pitfall between browser-rendered dashboard and VPS-rendered Telegram footer.
 - `references/private-recovery-backup-vault.md` — private GitHub recovery vault pattern for backing up Hermes source/config/skills/memory/systemd without committing Access Keys, logs, caches, or session transcripts.
 - `references/local-stt-parakeet.md` — local/custom STT bridge for Hermes voice messages using NVIDIA Parakeet/Spokenly via `HERMES_LOCAL_STT_COMMAND`, including Oracle ARM VPS suitability checks and Tailscale bridge alternative.

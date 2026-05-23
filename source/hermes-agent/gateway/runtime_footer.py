@@ -29,6 +29,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _DEFAULT_FIELDS: tuple[str, ...] = ("model", "context_pct", "cwd")
 _SEP = " · "
@@ -73,7 +74,17 @@ def _parse_quota_reset(value: Any) -> Optional[datetime]:
         return None
 
 
-def _format_quota_reset(bucket: dict[str, Any]) -> str:
+def _resolve_timezone(timezone_name: Optional[str]):
+    """Return a timezone object for config values, or local system tz if unset/invalid."""
+    if not timezone_name:
+        return None
+    try:
+        return ZoneInfo(str(timezone_name).strip())
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
+        return None
+
+
+def _format_quota_reset(bucket: dict[str, Any], timezone_name: Optional[str] = None) -> str:
     """Render reset time/date compactly for a quota bucket."""
     reset_dt = _parse_quota_reset(bucket.get("reset_at"))
     if not reset_dt and bucket.get("reset_after_seconds") is not None:
@@ -85,14 +96,15 @@ def _format_quota_reset(bucket: dict[str, Any]) -> str:
             reset_dt = None
     if not reset_dt:
         return ""
-    local_dt = reset_dt.astimezone()
+    target_tz = _resolve_timezone(timezone_name)
+    local_dt = reset_dt.astimezone(target_tz) if target_tz else reset_dt.astimezone()
     local_now = datetime.now(timezone.utc).astimezone(local_dt.tzinfo)
     if local_dt.date() == local_now.date():
         return local_dt.strftime("%H:%M")
     return local_dt.strftime("%a %H:%M")
 
 
-def format_quota_footer(quota: Optional[dict[str, Any]]) -> str:
+def format_quota_footer(quota: Optional[dict[str, Any]], timezone_name: Optional[str] = None) -> str:
     """Render sanitized Codex quota buckets for gateway footers.
 
     Expected input is the sanitized shape returned by ``agent.codex_quota``:
@@ -121,7 +133,7 @@ def format_quota_footer(quota: Optional[dict[str, Any]]) -> str:
             remaining_i = max(0, min(100, round(float(remaining))))
         except Exception:
             continue
-        reset = _format_quota_reset(bucket)
+        reset = _format_quota_reset(bucket, timezone_name=timezone_name)
         suffix = f" reset {reset}" if reset else ""
         parts.append(f"{label} {remaining_i}% left{suffix}")
     return _SEP.join(parts)
@@ -158,6 +170,8 @@ def resolve_footer_config(
                     resolved["enabled"] = bool(plat_footer.get("enabled"))
                 if isinstance(plat_footer.get("fields"), list) and plat_footer["fields"]:
                     resolved["fields"] = [str(f) for f in plat_footer["fields"]]
+                if isinstance(plat_footer.get("timezone"), str) and plat_footer["timezone"].strip():
+                    resolved["timezone"] = plat_footer["timezone"].strip()
 
     return resolved
 
@@ -170,6 +184,7 @@ def format_runtime_footer(
     cwd: Optional[str] = None,
     fields: Iterable[str] = _DEFAULT_FIELDS,
     quota: Optional[dict[str, Any]] = None,
+    quota_timezone: Optional[str] = None,
 ) -> str:
     """Render the footer line, or return "" if no fields have data.
 
@@ -191,7 +206,7 @@ def format_runtime_footer(
             if rel:
                 parts.append(rel)
         elif field == "quota":
-            quota_text = format_quota_footer(quota)
+            quota_text = format_quota_footer(quota, timezone_name=quota_timezone)
             if quota_text:
                 parts.append(quota_text)
         # Unknown field names are silently ignored.
@@ -239,4 +254,5 @@ def build_footer_line(
         cwd=cwd,
         fields=fields,
         quota=quota,
+        quota_timezone=cfg.get("timezone"),
     )

@@ -1,15 +1,21 @@
-## main...origin/main [behind 62]
+## main...origin/main [behind 74]
+ M agent/agent_runtime_helpers.py
  M agent/credential_pool.py
  M gateway/run.py
  M gateway/runtime_footer.py
+ M hermes_cli/config.py
  M hermes_cli/runtime_provider.py
  M hermes_cli/web_server.py
  M run_agent.py
+ M tests/agent/test_credential_pool.py
  M tests/gateway/test_runtime_footer.py
+ M tests/hermes_cli/test_runtime_provider_resolution.py
+ M tests/hermes_cli/test_web_server.py
  M tools/approval.py
  M web/src/components/OAuthProvidersCard.tsx
  M web/src/lib/api.ts
  M web/src/pages/ModelsPage.tsx
 ?? agent/codex_quota.py
+?? tests/agent/test_codex_quota_rotation.py
 ?? tests/hermes_cli/test_codex_account_selection_dashboard.py
 ?? tools/approval.py.bak.20260521T235258Z.approval-token-fix

@@ -116,7 +116,6 @@ _PUBLIC_API_PATHS: frozenset = frozenset({
     "/api/config/defaults",
     "/api/config/schema",
     "/api/model/info",
-    "/api/model/quota",
     "/api/dashboard/themes",
     "/api/dashboard/plugins",
     "/api/dashboard/plugins/rescan",
@@ -1092,6 +1091,15 @@ def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
         cid = str(entry.get("id") or "").strip()
         if not cid:
             continue
+        quota = _sanitize_codex_account_quota(entry)
+        quota_status = "unknown"
+        if isinstance(quota, dict):
+            try:
+                from agent.codex_quota import codex_quota_bucket_score
+
+                quota_status = str(codex_quota_bucket_score(quota).get("quota_status") or "unknown")
+            except Exception:
+                quota_status = "unknown"
         rows.append({
             "id": cid,
             "index": idx,
@@ -1104,7 +1112,8 @@ def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
             "has_refresh_token": bool(entry.get("refresh_token")),
             "has_account_fingerprint": bool(entry.get("account_fingerprint")),
             "selected": bool(selected_id and cid == selected_id),
-            "quota": _sanitize_codex_account_quota(entry),
+            "quota_status": quota_status,
+            "quota": quota,
         })
     return rows
 

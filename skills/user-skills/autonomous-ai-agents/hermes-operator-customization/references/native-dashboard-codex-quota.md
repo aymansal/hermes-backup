@@ -46,6 +46,24 @@ Frontend:
   - label = `${remainingPct}% left`
   - tooltip can show `${usedPct}% used`
 
+## Gateway / Telegram footer timezone pitfall
+
+The dashboard formats `reset_at` in the browser timezone, but Telegram runtime footers are rendered by the VPS gateway process. If the VPS timezone is UTC and Ayman's browser is UTC+1, the same quota reset timestamp can show one hour apart, e.g. dashboard `22:44` vs Telegram `21:44`.
+
+Before patching, verify read-only:
+
+```bash
+date -Is
+timedatectl | sed -n '1,8p'
+/home/ubuntu/.hermes/hermes-agent/venv/bin/python - <<'PY'
+from agent.codex_quota import load_cached_codex_quota
+from gateway.runtime_footer import format_quota_footer
+print(format_quota_footer(load_cached_codex_quota()))
+PY
+```
+
+Preferred fix path: add/consume a configured footer timezone for Telegram (for example `display.platforms.telegram.runtime_footer.timezone: Europe/Vienna` or the timezone Ayman chooses) instead of relying on the VPS local timezone. Ask Ayman to choose the timezone and approve the code/config patch before editing or restarting the gateway.
+
 ## Verification commands
 
 Run from repo root:

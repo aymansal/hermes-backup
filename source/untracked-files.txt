@@ -1,3 +1,4 @@
 agent/codex_quota.py
+tests/agent/test_codex_quota_rotation.py
 tests/hermes_cli/test_codex_account_selection_dashboard.py
 tools/approval.py.bak.20260521T235258Z.approval-token-fix

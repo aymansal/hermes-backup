@@ -2104,3 +2104,619 @@ def test_codex_oauth_nonterminal_refresh_does_not_quarantine(tmp_path, monkeypat
     tokens = auth_payload["providers"]["openai-codex"].get("tokens", {})
     assert tokens.get("access_token") == "old-access-token"
     assert tokens.get("refresh_token") == "old-refresh-token"
+
+
+# ── get_by_id — bypass exhaustion/cooldown for quota display ─────────
+
+
+def test_get_by_id_returns_entry_regardless_of_status(tmp_path, monkeypatch):
+    """get_by_id returns an exhausted credential; select_by_id does not."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-fallback")
+    from datetime import timedelta
+
+    now = time.time()
+    _write_auth_store(
+        tmp_path,
+        {
+            "version": 1,
+            "credential_pool": {
+                "openai-codex": [
+                    {
+                        "id": "cred-exhausted",
+                        "label": "Gpt3",
+                        "auth_type": "device_code",
+                        "priority": 0,
+                        "source": "device_code",
+                        "access_token": "exhausted-token",
+                        "last_status": "exhausted",
+                        "last_status_at": now,
+                        "last_error_code": 429,
+                        "last_error_reason": "usage_limit_reached",
+                        "last_error_message": "usage limit reached",
+                        "last_error_reset_at": (now + 3600),
+                    },
+                    {
+                        "id": "cred-ok",
+                        "label": "Gpt4",
+                        "auth_type": "device_code",
+                        "priority": 0,
+                        "source": "device_code",
+                        "access_token": "ok-token",
+                        "last_status": "ok",
+                        "last_status_at": None,
+                        "last_error_code": None,
+                    },
+                ]
+            },
+        },
+    )
+
+    from agent.credential_pool import load_pool
+
+    pool = load_pool("openai-codex")
+
+    # select_by_id should NOT return the exhausted entry
+    assert pool.select_by_id("cred-exhausted") is None
+
+    # get_by_id SHOULD return it regardless
+    got = pool.get_by_id("cred-exhausted")
+    assert got is not None
+    assert got.id == "cred-exhausted"
+    assert got.access_token == "exhausted-token"
+    assert got.last_status == "exhausted"
+
+    # get_by_id does not affect pool state — current_id stays unset
+    assert pool.current() is None
+
+
+def test_get_by_id_returns_none_for_missing_id(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    _write_auth_store(tmp_path, {"version": 1, "credential_pool": {"openai-codex": []}})
+    from agent.credential_pool import load_pool
+
+    pool = load_pool("openai-codex")
+    assert pool.get_by_id("nobody") is None
+    assert pool.get_by_id("") is None
+
+
+def test_get_by_id_does_not_modify_pool_state(tmp_path, monkeypatch):
+    """get_by_id must not set current_id, persist, or change entry state."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    _write_auth_store(
+        tmp_path,
+        {
+            "version": 1,
+            "credential_pool": {
+                "openai-codex": [
+                    {
+                        "id": "cred-a",
+                        "label": "A",
+                        "auth_type": "device_code",
+                        "priority": 0,
+                        "source": "device_code",
+                        "access_token": "token-a",
+                        "last_status": "ok",
+                    }
+                ]
+            },
+        },
+    )
+    from agent.credential_pool import load_pool
+
+    pool = load_pool("openai-codex")
+    assert pool.current() is None
+
+    # get_by_id must NOT set current_id
+    got = pool.get_by_id("cred-a")
+    assert got is not None
+    assert pool.current() is None
+
+    # select_by_id SHOULD set current_id (existing contract)
+    selected = pool.select_by_id("cred-a")
+    assert selected is not None
+    assert pool.current() is not None
+    assert pool.current().id == "cred-a"
+
+
+# ── _resolve_pool_codex_credentials — quota-display bypass ──────────
+
+
+def _exhausted_pool_auth_payload(now: float) -> dict:
+    return {
+        "version": 1,
+        "credential_pool": {
+            "openai-codex": [
+                {
+                    "id": "cred-exhausted",
+                    "label": "Gpt3",
+                    "auth_type": "device_code",
+                    "priority": 0,
+                    "source": "device_code",
+                    "access_token": "exhausted-token",
+                    "last_status": "exhausted",
+                    "last_status_at": now,
+                    "last_error_code": 429,
+                    "last_error_reason": "usage_limit_reached",
+                    "last_error_message": "usage limit reached",
+                    "last_error_reset_at": now + 3600,
+                },
+            ]
+        },
+    }
+
+
+def test_resolve_pool_codex_credentials_bypasses_exhaustion_for_quota_display(tmp_path, monkeypatch):
+    """_for_quota_display=True must return token for exhausted credential."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _write_auth_store(tmp_path, _exhausted_pool_auth_payload(time.time()))
+
+    from agent.codex_quota import _resolve_pool_codex_credentials
+
+    token, meta = _resolve_pool_codex_credentials(
+        "cred-exhausted", _for_quota_display=True,
+    )
+    assert token == "exhausted-token"
+    assert meta is not None
+    assert meta["id"] == "cred-exhausted"
+    assert meta["label"] == "Gpt3"
+
+
+def test_resolve_pool_codex_credentials_default_respects_exhaustion(tmp_path, monkeypatch):
+    """Without _for_quota_display, exhausted credential must raise."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _write_auth_store(tmp_path, _exhausted_pool_auth_payload(time.time()))
+
+    from agent.codex_quota import _resolve_pool_codex_credentials
+    from hermes_cli.auth import AuthError
+
+    with pytest.raises(AuthError, match="No usable OpenAI Codex credential"):
+        _resolve_pool_codex_credentials("cred-exhausted")
+
+
+def test_resolve_pool_codex_credentials_ok_credential_no_bypass_needed(tmp_path, monkeypatch):
+    """Healthy credential works with or without the bypass flag."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _write_auth_store(
+        tmp_path,
+        {
+            "version": 1,
+            "credential_pool": {
+                "openai-codex": [
+                    {
+                        "id": "cred-healthy",
+                        "label": "Gpt4",
+                        "auth_type": "device_code",
+                        "priority": 0,
+                        "source": "device_code",
+                        "access_token": "healthy-token",
+                        "last_status": "ok",
+                    }
+                ]
+            },
+        },
+    )
+
+    from agent.codex_quota import _resolve_pool_codex_credentials
+
+    # Default (no bypass flag)
+    token, meta = _resolve_pool_codex_credentials("cred-healthy")
+    assert token == "healthy-token"
+    assert meta["id"] == "cred-healthy"
+
+    # Explicit bypass flag — still works
+    token2, meta2 = _resolve_pool_codex_credentials("cred-healthy", _for_quota_display=True)
+    assert token2 == "healthy-token"
+    assert meta2["id"] == "cred-healthy"
+
+
+# ── fetch_live_codex_quota — live /usage attempt for exhausted ──────
+
+
+def test_fetch_live_codex_quota_with_exhausted_credential_makes_usage_call(tmp_path, monkeypatch):
+    """fetch_live_codex_quota must attempt /usage for exhausted selected credential."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _write_auth_store(tmp_path, _exhausted_pool_auth_payload(time.time()))
+
+    from agent import codex_quota as cq
+
+    called = []
+
+    def _fake_get(*args, **kwargs):
+        class _Resp:
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {
+                    "rate_limit": {
+                        "allowed": True,
+                        "limit_reached": False,
+                        "primary_window": {
+                            "used_percent": 97,
+                            "reset_after_seconds": 120,
+                            "limit_window_seconds": 18000,
+                        },
+                    },
+                    "plan_type": "chatgpt_plus",
+                }
+
+        called.append(("get", args, kwargs))
+        return _Resp()
+
+    # Codex Cloudflare headers don't matter for the test; prevent the
+    # real token from flowing to the real endpoint.
+    monkeypatch.setattr(cq.requests, "get", _fake_get)
+
+    result = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="cred-exhausted",
+    )
+
+    assert len(called) == 1
+    url = called[0][1][0] if called[0][1] else ""
+    assert "/backend-api/codex/usage" in url
+    assert result.get("available") is True
+    assert result.get("selected_credential_id") == "cred-exhausted"
+    # Fresh quota from /usage supersedes stale cache
+    buckets = result.get("buckets", [])
+    assert len(buckets) >= 1
+    primary = next((b for b in buckets if b.get("key") == "primary"), {})
+    assert primary.get("used_percent") == 97
+
+
+def test_fetch_live_codex_quota_exhausted_credential_usage_fails_falls_back_to_cache(
+    tmp_path, monkeypatch,
+):
+    """When /usage fails for exhausted credential, fall back to cached quota."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    now = time.time()
+    auth_payload = _exhausted_pool_auth_payload(now)
+    # Also store some cached quota inside the pool entry to verify fallback
+    auth_payload["credential_pool"]["openai-codex"][0]["last_quota"] = {
+        "provider": "openai-codex",
+        "source": "usage_endpoint",
+        "captured_at_unix": int(now - 60),
+        "buckets": [
+            {"key": "primary", "label": "5h", "used_percent": 99,
+             "remaining_percent": 1, "reset_at": now + 100,
+             "reset_after_seconds": 100, "window_minutes": 300},
+        ],
+    }
+    _write_auth_store(tmp_path, auth_payload)
+
+    from agent import codex_quota as cq
+
+    def _fake_get_fail(*args, **kwargs):
+        import requests as real_requests
+        raise real_requests.exceptions.ConnectionError("unit test simulated failure")
+
+    monkeypatch.setattr(cq.requests, "get", _fake_get_fail)
+
+    result = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="cred-exhausted",
+    )
+
+    # Must return cached quota with failure marker
+    assert result.get("live_fetch_failed") is True
+    assert result.get("available") is True
+    buckets = result.get("buckets", [])
+    assert len(buckets) >= 1
+    primary = next((b for b in buckets if b.get("key") == "primary"), {})
+    assert primary.get("used_percent") == 99
+    # Must still carry pool entry metadata
+    assert result.get("selected_credential_id") == "cred-exhausted"
+
+
+# ── Unused-account 30m fetch backoff ─────────────────────────────────
+
+
+def _two_codex_payload(
+    now: float,
+    selected_last_fetch_attempt: float | None = None,
+    unused_last_fetch_attempt: float | None = None,
+) -> dict:
+    """Auth store payload with two Codex accounts: selected-cred and unused-cred."""
+    payload: dict = {
+        "version": 1,
+        "credential_pool": {
+            "openai-codex": [
+                {
+                    "id": "selected-cred",
+                    "label": "Selected",
+                    "auth_type": "device_code",
+                    "priority": 0,
+                    "source": "device_code",
+                    "access_token": "selected-token",
+                    "last_status": "ok",
+                    "last_quota": {
+                        "provider": "openai-codex",
+                        "source": "usage_endpoint",
+                        "captured_at_unix": int(now - 120),
+                        "buckets": [
+                            {"key": "primary", "label": "5h", "used_percent": 30,
+                             "remaining_percent": 70, "reset_at": now + 3600,
+                             "reset_after_seconds": 3600, "window_minutes": 300},
+                        ],
+                    },
+                },
+                {
+                    "id": "unused-cred",
+                    "label": "Unused",
+                    "auth_type": "device_code",
+                    "priority": 1,
+                    "source": "device_code",
+                    "access_token": "unused-token",
+                    "last_status": "ok",
+                    "last_quota": {
+                        "provider": "openai-codex",
+                        "source": "usage_endpoint",
+                        "captured_at_unix": int(now - 60),
+                        "buckets": [
+                            {"key": "primary", "label": "5h", "used_percent": 10,
+                             "remaining_percent": 90, "reset_at": now + 7200,
+                             "reset_after_seconds": 7200, "window_minutes": 300},
+                        ],
+                    },
+                },
+            ],
+        },
+    }
+    if selected_last_fetch_attempt is not None:
+        payload["credential_pool"]["openai-codex"][0]["last_fetch_attempt_at_unix"] = selected_last_fetch_attempt
+    if unused_last_fetch_attempt is not None:
+        payload["credential_pool"]["openai-codex"][1]["last_fetch_attempt_at_unix"] = unused_last_fetch_attempt
+    return payload
+
+
+def _fake_usage_response(*args, **kwargs):
+    """Return a successful 200 /usage response."""
+    class _Resp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "rate_limit": {
+                    "allowed": True,
+                    "limit_reached": False,
+                    "primary_window": {
+                        "used_percent": 50,
+                        "reset_after_seconds": 3000,
+                        "limit_window_seconds": 18000,
+                    },
+                },
+                "plan_type": "chatgpt_plus",
+            }
+    return _Resp()
+
+
+def test_unused_account_fetched_when_never_fetched(tmp_path, monkeypatch):
+    """Unused account with no last_fetch_attempt_at_unix must make live fetch."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    now = time.time()
+    _write_auth_store(tmp_path, _two_codex_payload(now))
+
+    # Set selected credential so unused gate is meaningful
+    monkeypatch.setattr(
+        "agent.codex_quota._selected_codex_credential_id",
+        lambda: "selected-cred",
+    )
+    monkeypatch.setattr("agent.codex_quota.requests.get", _fake_usage_response)
+
+    from agent import codex_quota as cq
+
+    result = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="unused-cred",
+    )
+
+    # Must have made the live call — returned quota should be from /usage
+    assert result.get("available") is True
+    buckets = result.get("buckets", [])
+    assert len(buckets) >= 1
+    primary = next((b for b in buckets if b.get("key") == "primary"), {})
+    # The fake response returns used_percent=50, remaining_percent=50
+    assert primary.get("used_percent") == 50
+    assert "backoff_remaining_seconds" not in result
+
+
+def test_unused_account_not_fetched_before_backoff(tmp_path, monkeypatch):
+    """Unused account with recent last_fetch_attempt must be skipped."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    now = time.time()
+    # Last attempt 60 seconds ago — well within the 1800s backoff
+    _write_auth_store(tmp_path, _two_codex_payload(
+        now, unused_last_fetch_attempt=now - 60,
+    ))
+
+    monkeypatch.setattr(
+        "agent.codex_quota._selected_codex_credential_id",
+        lambda: "selected-cred",
+    )
+
+    call_count = 0
+
+    def _counting_fake(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _fake_usage_response(*args, **kwargs)
+
+    monkeypatch.setattr("agent.codex_quota.requests.get", _counting_fake)
+
+    from agent import codex_quota as cq
+
+    result = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="unused-cred",
+    )
+
+    # Must NOT have made the live call
+    assert call_count == 0
+    # Must return cached data with backoff indicator
+    assert "backoff_remaining_seconds" in result
+    remaining = result["backoff_remaining_seconds"]
+    assert isinstance(remaining, int)
+    assert remaining > 0
+    assert remaining <= 1800
+    # Must still return cached quota data
+    assert result.get("available") is True
+    buckets = result.get("buckets", [])
+    assert len(buckets) >= 1
+    primary = next((b for b in buckets if b.get("key") == "primary"), {})
+    assert primary.get("used_percent") == 10  # from cached quota
+
+
+def test_unused_account_fetched_after_backoff_expires(tmp_path, monkeypatch):
+    """Unused account with old last_fetch_attempt must make live fetch."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    now = time.time()
+    # Last attempt 2000 seconds ago — past the 1800s backoff
+    _write_auth_store(tmp_path, _two_codex_payload(
+        now, unused_last_fetch_attempt=now - 2000,
+    ))
+
+    monkeypatch.setattr(
+        "agent.codex_quota._selected_codex_credential_id",
+        lambda: "selected-cred",
+    )
+    monkeypatch.setattr("agent.codex_quota.requests.get", _fake_usage_response)
+
+    from agent import codex_quota as cq
+
+    result = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="unused-cred",
+    )
+
+    # Must have made the live call
+    assert result.get("available") is True
+    buckets = result.get("buckets", [])
+    assert len(buckets) >= 1
+    primary = next((b for b in buckets if b.get("key") == "primary"), {})
+    assert primary.get("used_percent") == 50  # from fresh fetch
+    assert "backoff_remaining_seconds" not in result
+
+
+def test_selected_account_not_blocked_by_backoff(tmp_path, monkeypatch):
+    """Selected account must always refresh even if recently fetched."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    now = time.time()
+    # Selected was fetched 10 seconds ago — still within backoff, but must NOT block
+    _write_auth_store(tmp_path, _two_codex_payload(
+        now, selected_last_fetch_attempt=now - 10,
+    ))
+
+    monkeypatch.setattr(
+        "agent.codex_quota._selected_codex_credential_id",
+        lambda: "selected-cred",
+    )
+
+    call_count = 0
+
+    def _counting_fake(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _fake_usage_response(*args, **kwargs)
+
+    monkeypatch.setattr("agent.codex_quota.requests.get", _counting_fake)
+
+    from agent import codex_quota as cq
+
+    result = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="selected-cred",
+    )
+
+    # Must have made the live call — selected account is never backoff-gated
+    assert call_count == 1
+    assert result.get("available") is True
+    buckets = result.get("buckets", [])
+    assert len(buckets) >= 1
+    primary = next((b for b in buckets if b.get("key") == "primary"), {})
+    assert primary.get("used_percent") == 50
+    assert "backoff_remaining_seconds" not in result
+
+
+def test_failed_unused_account_fetch_records_attempt(tmp_path, monkeypatch):
+    """Failed unused-account fetch must save last_fetch_attempt_at_unix so retries back off."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    now = time.time()
+    _write_auth_store(tmp_path, _two_codex_payload(now))
+
+    monkeypatch.setattr(
+        "agent.codex_quota._selected_codex_credential_id",
+        lambda: "selected-cred",
+    )
+
+    import requests as real_requests
+
+    monkeypatch.setattr(
+        "agent.codex_quota.requests.get",
+        lambda *a, **kw: (_ for _ in ()).throw(real_requests.ConnectionError("simulated failure")),
+    )
+
+    from agent import codex_quota as cq
+
+    # First call — fails
+    result1 = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="unused-cred",
+    )
+    assert result1.get("live_fetch_failed") is True
+
+    # Verify that last_fetch_attempt_at_unix was saved
+    from hermes_cli.auth import read_credential_pool
+    entries = read_credential_pool("openai-codex")
+    unused_entry = next(e for e in entries if e.get("id") == "unused-cred")
+    saved_attempt = unused_entry.get("last_fetch_attempt_at_unix")
+    assert saved_attempt is not None
+    assert isinstance(saved_attempt, (int, float))
+    assert time.time() - float(saved_attempt) < 5  # was set very recently
+
+    # Second call immediately after — must be backoff-gated
+    monkeypatch.setattr("agent.codex_quota.requests.get", _fake_usage_response)
+    result2 = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="unused-cred",
+    )
+    assert "backoff_remaining_seconds" in result2
+    assert result2.get("live_fetch_failed") is not True  # cached quota, not failed fetch
+
+
+def test_backoff_no_secrets_in_response(tmp_path, monkeypatch):
+    """The backoff response must not expose any secrets."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    now = time.time()
+    _write_auth_store(tmp_path, _two_codex_payload(
+        now, unused_last_fetch_attempt=now - 60,
+    ))
+
+    monkeypatch.setattr(
+        "agent.codex_quota._selected_codex_credential_id",
+        lambda: "selected-cred",
+    )
+
+    from agent import codex_quota as cq
+
+    result = cq.fetch_live_codex_quota(
+        timeout_seconds=5.0, credential_id="unused-cred",
+    )
+
+    assert "backoff_remaining_seconds" in result
+    assert isinstance(result["backoff_remaining_seconds"], int)
+    # No access tokens, no auth secrets
+    for key in ("access_token", "refresh_token", "auth", "token", "secret"):
+        assert key not in str(result).lower()
+    # The only credential id is the selected one from cached metadata
+    assert "selected_credential_id" in result
+    assert result["selected_credential_id"] == "unused-cred"

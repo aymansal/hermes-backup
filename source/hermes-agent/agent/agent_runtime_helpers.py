@@ -559,6 +559,21 @@ def recover_with_credential_pool(
     if pool is None:
         return False, has_retried_429
 
+    def _persist_runtime_switch_if_enabled(next_entry) -> None:
+        if (agent.provider or "") != "openai-codex" or next_entry is None:
+            return
+        try:
+            from agent.codex_quota import codex_quota_rotation_config, persist_selected_codex_credential_id
+
+            rotation_cfg = codex_quota_rotation_config()
+            if rotation_cfg.get("persist_runtime_switch"):
+                persist_selected_codex_credential_id(
+                    str(getattr(next_entry, "id", "") or ""),
+                    reason="reactive_rotation",
+                )
+        except Exception:
+            pass
+
     effective_reason = classified_reason
     if effective_reason is None:
         if status_code == 402:
@@ -578,6 +593,7 @@ def recover_with_credential_pool(
                 getattr(next_entry, "id", "?"),
             )
             agent._swap_credential(next_entry)
+            _persist_runtime_switch_if_enabled(next_entry)
             return True, False
         return False, has_retried_429
 
@@ -601,6 +617,7 @@ def recover_with_credential_pool(
                 getattr(next_entry, "id", "?"),
             )
             agent._swap_credential(next_entry)
+            _persist_runtime_switch_if_enabled(next_entry)
             return True, False
         return False, True
 
@@ -645,6 +662,7 @@ def recover_with_credential_pool(
                 getattr(next_entry, "id", "?"),
             )
             agent._swap_credential(next_entry)
+            _persist_runtime_switch_if_enabled(next_entry)
             return True, False
 
     return False, has_retried_429

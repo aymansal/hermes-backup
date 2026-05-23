@@ -87,6 +87,7 @@ _EXTRA_KEYS = frozenset({
     "token_type", "scope", "client_id", "portal_base_url", "obtained_at",
     "expires_in", "agent_key_id", "agent_key_expires_in", "agent_key_reused",
     "agent_key_obtained_at", "tls", "last_quota", "account_fingerprint",
+    "last_fetch_attempt_at_unix",
 })
 
 
@@ -1162,6 +1163,73 @@ class CredentialPool:
                     self._current_id = entry.id
                     return entry
             return None
+
+    def get_by_id(self, credential_id: str) -> Optional[PooledCredential]:
+        """Retrieve a credential by id regardless of exhaustion/cooldown status.
+
+        Unlike :meth:`select_by_id`, this does not filter by availability.
+        Use this for read-only inspection such as quota display where you
+        need access to the credential's token even when it is in cooldown.
+        This method does not modify pool state (current_id, persist, etc.).
+        """
+        target = str(credential_id or "").strip()
+        if not target:
+            return None
+        with self._lock:
+            for entry in self._entries:
+                if entry.id == target:
+                    return entry
+            return None
+
+    def select_codex_by_quota(
+        self,
+        *,
+        selected_credential_id: str = "",
+        threshold_percent: float = 5,
+        window_key: str = "primary",
+        prefer_reset_ending_soonest: bool = True,
+        max_quota_cache_age_seconds: int = 0,
+    ) -> Optional[PooledCredential]:
+        """Select a Codex credential using cached quota metadata.
+
+        If the selected account is still above threshold, keep it. If it is
+        below threshold, switch to the best above-threshold account. If every
+        account is low/unknown, keep the selected account when available so the
+        existing reactive 402/429 fallback remains the final safety net.
+
+        When *max_quota_cache_age_seconds* > 0, stale cached quota snapshots
+        are treated as unknown — the rotation path will not switch into an
+        account whose quota data is too old to trust.
+        """
+        if self.provider != "openai-codex":
+            return self.select_by_id(selected_credential_id) if selected_credential_id else self.select()
+        with self._lock:
+            available = self._available_entries(clear_expired=True, refresh=True)
+            if not available:
+                self._current_id = None
+                return None
+            try:
+                from agent.codex_quota import choose_codex_quota_candidate
+
+                entry, _meta = choose_codex_quota_candidate(
+                    available,
+                    current_id=selected_credential_id,
+                    threshold_percent=threshold_percent,
+                    window_key=window_key,
+                    prefer_reset_ending_soonest=prefer_reset_ending_soonest,
+                    max_quota_cache_age_seconds=max_quota_cache_age_seconds,
+                )
+            except Exception:
+                entry = None
+            if entry is None and selected_credential_id:
+                for candidate in available:
+                    if candidate.id == selected_credential_id:
+                        entry = candidate
+                        break
+            if entry is None:
+                entry = available[0]
+            self._current_id = entry.id
+            return entry
 
     def _available_entries(self, *, clear_expired: bool = False, refresh: bool = False) -> List[PooledCredential]:
         """Return entries not currently in exhaustion cooldown.

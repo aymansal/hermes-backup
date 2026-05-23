@@ -505,6 +505,22 @@ DEFAULT_CONFIG = {
     "providers": {},
     "fallback_providers": [],
     "credential_pool_strategies": {},
+    "codex_quota_rotation": {
+        "enabled": False,
+        "threshold_percent": 5,
+        "window_key": "primary",
+        "max_quota_cache_age_seconds": 900,
+        "persist_runtime_switch": False,
+        "prefer_reset_ending_soonest": True,
+    },
+    "codex_warmup": {
+        "enabled": False,
+        "timezone": "Africa/Casablanca",
+        "local_time": "09:00",
+        "target_reset_local_time": "14:00",
+        "mode": "selected_only",
+        "min_remaining_percent": 5,
+    },
     "toolsets": ["hermes-cli"],
     "agent": {
         "max_turns": 90,

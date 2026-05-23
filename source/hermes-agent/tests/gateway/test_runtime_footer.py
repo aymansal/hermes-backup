@@ -169,6 +169,24 @@ def test_format_footer_quota_field_with_reset_time(monkeypatch):
     assert out == "5h 83% left reset Tue 12:00 · Weekly 94% left reset Wed 12:00"
 
 
+def test_format_footer_quota_uses_configured_timezone():
+    out = format_runtime_footer(
+        model="openai/gpt-5.4",
+        context_tokens=50,
+        context_length=100,
+        cwd="/x",
+        fields=("quota",),
+        quota={
+            "available": True,
+            "buckets": [
+                {"label": "5h", "remaining_percent": 46, "reset_at": 1779486252},
+            ],
+        },
+        quota_timezone="Africa/Casablanca",
+    )
+    assert out == "5h 46% left reset 22:44"
+
+
 def test_format_footer_quota_skips_unavailable():
     out = format_runtime_footer(
         model="openai/gpt-5.4",
@@ -227,6 +245,18 @@ def test_resolve_platform_can_add_fields_only():
     dc = resolve_footer_config(user, "discord")
     assert dc["enabled"] is True
     assert dc["fields"] == ["context_pct"]
+
+
+def test_resolve_platform_timezone():
+    user = {
+        "display": {
+            "platforms": {
+                "telegram": {"runtime_footer": {"timezone": "Africa/Casablanca"}},
+            },
+        },
+    }
+    cfg = resolve_footer_config(user, "telegram")
+    assert cfg["timezone"] == "Africa/Casablanca"
 
 
 def test_resolve_ignores_malformed_config():

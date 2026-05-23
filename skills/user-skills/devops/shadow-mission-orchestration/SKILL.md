@@ -19,6 +19,7 @@ Use this Skill Rune when Ayman gives a mission that benefits from multiple worke
 Mandatory linked references:
 
 - `references/shadow-agent-model-codex.md` — load/read this before creating Kanban worker profiles or assigning long-running cards. It contains Ayman's universal 90-second Kanban-first rule, OpenCode Go live model roster, task-to-model routing table, and review/iteration doctrine.
+- `references/codex-quota-rotation-ops.md` — load/read this for Hermes Codex/ChatGPT multi-account quota rotation, dashboard quota display, weekly-vs-5h quota gates, Morocco warmup timers, and restart/activation safety.
 - `references/telegram-topic-command-center.md` — load/read this when Ayman wants a Telegram supergroup with many topics as separate Hermes command lanes, topic-specific Skill Rune bindings, or topic-targeted cron/raid delivery.
 - `references/ams-warp-browser-crawler.md` — load/read this for AMS/Austrian job-board browser/crawler missions. It captures the WARP route test, AMS robots/API constraints, and the safe browser-use vs Scrapy split.
 
@@ -150,6 +151,12 @@ Before dispatching Shadows, Igris should define:
 8. Verification method
 9. Escalation condition
 
+### Ayman's Kanban-first correction
+
+When Ayman asks how a >90-second task should start, answer narrowly and operationally: create Kanban cards first, report card IDs/status quickly, dispatch workers, keep the main chat available, and require approval before side effects. Do not bury this answer under unrelated feature rules or architecture detail.
+
+When Ayman says to establish/build/implement a long Hermes feature, immediately open the raid instead of doing long inline recon. Create a dedicated board or cards, make the first card read-only when appropriate, and block implementation/deployment/cron cards behind explicit Ayman approval. Report the board slug and task IDs in the same turn.
+
 Template:
 
 ```text
@@ -251,12 +258,15 @@ Use delegate_task first unless the project is large enough for Kanban.
 Recommended sequence:
 
 1. Planning Shadow: decomposes requirements.
-2. Implementer Shadow: writes code/tests.
-3. Spec Reviewer Shadow: checks prompt compliance.
-4. Quality Reviewer Shadow: checks bugs, security, style, tests.
-5. Igris Final Gate: verifies diffs and tests directly.
+2. Reviewer Shadow checks the plan/spec before implementation proceeds.
+3. Implementer Shadow writes code/tests using a task-appropriate worker model/profile.
+4. Reviewer Shadow checks prompt compliance, bugs, security, style, and tests.
+5. If review fails, Igris creates an iteration/fix card linked from the review and routes it back to the appropriate worker; repeat until PASS or BLOCKED.
+6. Igris Final Gate verifies diffs and tests directly before reporting success.
 
 Do not let an implementer be its own final reviewer.
+Do not assign implementation labor to the `default`/GPT-5.5 General profile just because it exists. For Ayman's raids, GPT-5.5 is reserved for review/commander verification unless he explicitly approves using it for labor; create or reuse an OpenCode Go coding profile first.
+Every Kanban card must pass a review gate before dependent cards proceed. A worker handoff saying "review-required" should become a reviewer run, not a final completion.
 
 ## Research Mission Pattern
 
@@ -340,8 +350,10 @@ Before creating Kanban worker profiles or assigning long-running cards:
 Current defaults from the codex:
 
 - Routine scout/read-only diagnostics: `deepseek-v4-flash`.
-- Serious code implementation: `deepseek-v4-pro` or `qwen3.6-plus`.
+- Code implementation / bug fixes: `deepseek-v4-flash` by default because GPT-5.5 reviews worker output.
+- Coding escalation only after repeated review failure, clear heavy complexity, or Ayman approval: `qwen3.6-plus` or `deepseek-v4-pro`.
 - Large docs/web/session synthesis: `kimi-k2.6`.
+- UI/product/frontend visual work: `kimi-k2.6`.
 - Memory curation and policy-style judgment: `glm-5.1`.
 - Writing/final report shaping: `minimax-m2.7`.
 - High-stakes final review: GPT-5.5 shadow or main General verification.

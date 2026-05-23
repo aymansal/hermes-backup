@@ -16,12 +16,14 @@ Short tasks stay inline. Long tasks become raids.
 2. If >90 seconds, create a Kanban raid board/card graph instead of working inline.
 3. General chooses worker model/profile from this codex based on task type and evidence, not habit.
 4. Worker shadow performs scoped work and leaves evidence in Kanban comments/summary.
-5. General spawns or assigns a GPT-5.5 review shadow for final-grade review when stakes are high, or uses a DS/GLM reviewer for cheap first pass.
-6. Reviewer reports to the General, not directly as final truth.
-7. If review fails, General creates an iteration/fix card for the original worker with exact failures.
+5. General spawns or assigns a GPT-5.5 review shadow for code/config/persistent docs/high-stakes work. Research-only scraping does not automatically need GPT-5.5 review; report it with sources unless it will change durable rules.
+6. Reviewer checks only the worker's produced output: result, diff, tests, artifacts, acceptance criteria, and risks. The reviewer does not redo the whole task.
+7. If review fails, General creates an iteration/fix card for the same worker model/profile with exact failures. Escalate models only after repeated failed iterations or Ayman approval.
 8. Loop until PASS, BLOCKED, or user decision is required.
 9. General verifies the final state directly when there are external side effects.
 10. General reports concise result to Ayman.
+
+See `references/ayman-kanban-review-routing-doctrine.md` for the current Ayman-specific routing and review doctrine.
 
 ## Sources fetched / inspected
 
@@ -58,7 +60,7 @@ Hermes API mode rule: MiniMax models use `anthropic_messages`; other OpenCode Go
 | Task type | Primary shadow | Fallback | Review shadow | Notes |
 |---|---|---|---|---|
 | Routine scout / inspect / read-only diagnostics | deepseek-v4-flash | qwen3.6-plus | glm-5.1 or gpt-5.5 | Fast and cheap. Good default for first pass. |
-| Code implementation / bug fix | deepseek-v4-pro | qwen3.6-plus | gpt-5.5 | Use worktree/workspace; reviewer must inspect diff/tests. |
+| Code implementation / bug fix | deepseek-v4-flash | qwen3.6-plus | gpt-5.5 | Ayman default: use DS V4 Flash for coding because GPT-5.5 reviews each code/config task. Use deepseek-v4-pro only for explicit heavy cases, repeated review failures, or Ayman approval. |
 | Large docs / web / session synthesis | kimi-k2.6 | kimi-k2.5 | glm-5.1 or gpt-5.5 | Kimi first for long context and extraction. |
 | Memory curation / preference extraction | glm-5.1 | glm-5 | gpt-5.5 | Conservative judgment; avoid pollution. |
 | Policy/safety/approval triage | glm-5.1 | qwen3.6-plus | gpt-5.5 | GLM for cheap judgment, GPT-5.5 for final high-stakes. |
@@ -465,7 +467,7 @@ Body must include: objective, read-only scope, forbidden writes, required eviden
 ### Implement card
 
 Title: `implement: <change>`
-Assignee: `deepseek-v4-pro` or `qwen3.6-plus`
+Assignee: `deepseek-v4-flash` by Ayman default. Escalate to `qwen3.6-plus` or `deepseek-v4-pro` only after repeated review failure, obvious heavy complexity, or explicit approval.
 Body must include: exact files/repo/path if known, tests required, rollback notes, no secret exposure, and review-required handoff.
 
 ### Review card
@@ -491,7 +493,8 @@ Review checklist:
 Profiles may be created dynamically by the General when a raid needs stable worker identity. Use lowercase descriptive names. Examples:
 
 - `shadow-ds-scout` → deepseek-v4-flash
-- `shadow-ds-coder` → deepseek-v4-pro
+- `shadow-ds-coder` → deepseek-v4-flash
+- `shadow-ds-coder-pro` → deepseek-v4-pro for explicit heavy/escalated cases
 - `shadow-kimi-research` → kimi-k2.6
 - `shadow-glm-curator` → glm-5.1
 - `shadow-minimax-writer` → minimax-m2.7

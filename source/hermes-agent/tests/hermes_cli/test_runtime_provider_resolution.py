@@ -2701,3 +2701,86 @@ def test_host_derived_key_helper_basic_cases():
     for k in ("DEEPSEEK_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY",
               "OPENAI_API_KEY", "OPENROUTER_API_KEY"):
         _os.environ.pop(k, None)
+
+
+def test_codex_pinned_selection_uses_select_by_id_when_quota_rotation_disabled(monkeypatch):
+    calls = []
+
+    class _Entry:
+        id = "selected"
+        access_token = "selected-token"
+        source = "manual"
+        base_url = "https://chatgpt.com/backend-api/codex"
+
+    class _Pool:
+        def has_credentials(self):
+            return True
+
+        def select_by_id(self, credential_id):
+            calls.append(("select_by_id", credential_id))
+            return _Entry()
+
+        def select_codex_by_quota(self, **kwargs):
+            calls.append(("select_codex_by_quota", kwargs))
+            return _Entry()
+
+    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "openai-codex")
+    monkeypatch.setattr(rp, "_get_model_config", lambda: {"provider": "openai-codex", "credential_id": "selected"})
+    monkeypatch.setattr(rp, "load_pool", lambda provider: _Pool())
+    monkeypatch.setattr("agent.codex_quota.codex_quota_rotation_config", lambda: {"enabled": False})
+
+    resolved = rp.resolve_runtime_provider(requested="openai-codex")
+
+    assert resolved["api_key"] == "selected-token"
+    assert calls == [("select_by_id", "selected")]
+
+
+def test_codex_pinned_selection_uses_quota_selector_when_enabled(monkeypatch):
+    calls = []
+
+    class _Entry:
+        id = "candidate"
+        access_token = "candidate-token"
+        source = "manual"
+        base_url = "https://chatgpt.com/backend-api/codex"
+
+    class _Pool:
+        def has_credentials(self):
+            return True
+
+        def select_by_id(self, credential_id):
+            calls.append(("select_by_id", credential_id))
+            return _Entry()
+
+        def select_codex_by_quota(self, **kwargs):
+            calls.append(("select_codex_by_quota", kwargs))
+            return _Entry()
+
+    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "openai-codex")
+    monkeypatch.setattr(rp, "_get_model_config", lambda: {"provider": "openai-codex", "credential_id": "selected"})
+    monkeypatch.setattr(rp, "load_pool", lambda provider: _Pool())
+    monkeypatch.setattr(
+        "agent.codex_quota.codex_quota_rotation_config",
+        lambda: {
+            "enabled": True,
+            "threshold_percent": 5,
+            "window_key": "primary",
+            "prefer_reset_ending_soonest": True,
+        },
+    )
+
+    resolved = rp.resolve_runtime_provider(requested="openai-codex")
+
+    assert resolved["api_key"] == "candidate-token"
+    assert calls == [
+        (
+            "select_codex_by_quota",
+            {
+                "selected_credential_id": "selected",
+                "threshold_percent": 5,
+                "window_key": "primary",
+                "prefer_reset_ending_soonest": True,
+                "max_quota_cache_age_seconds": 0,
+            },
+        )
+    ]

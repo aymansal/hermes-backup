@@ -328,6 +328,30 @@ class TestWebServerEndpoints:
         resp = unauth_client.get("/api/status")
         assert resp.status_code == 200
 
+    def test_model_quota_requires_auth(self):
+        """Blocker 2: /api/model/quota must require dashboard session auth.
+
+        Unauthenticated requests must return 401.  The authenticated client
+        (which carries the session token) must pass the auth middleware —
+        the endpoint may fail downstream (missing credentials in test), but
+        it must not be a 401.
+        """
+        from starlette.testclient import TestClient
+        from hermes_cli.web_server import app
+
+        # Unauthenticated: must be rejected
+        unauth_client = TestClient(app)
+        resp = unauth_client.get("/api/model/quota")
+        assert resp.status_code == 401, (
+            f"Expected 401 for unauthenticated /api/model/quota, got {resp.status_code}"
+        )
+
+        # Authenticated: must pass auth middleware
+        resp = self.client.get("/api/model/quota")
+        assert resp.status_code != 401, (
+            f"Authenticated /api/model/quota should not be 401, got {resp.status_code}"
+        )
+
     def test_path_traversal_blocked(self):
         """Verify URL-encoded path traversal is blocked."""
         # %2e%2e = ..

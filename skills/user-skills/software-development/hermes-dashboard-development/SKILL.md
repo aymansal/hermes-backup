@@ -136,6 +136,8 @@ See `references/codex-chatgpt-quota-dashboard.md` for the concrete endpoint shap
 
 If the same quota must appear in messaging-platform reply footers, reuse the sanitized helper instead of creating a second provider path. See `references/codex-quota-gateway-footer.md` for the gateway runtime-footer pattern, including Telegram quota-only footers with reset times.
 
+When reporting Codex quota to Ayman in chat, convert provider UTC reset timestamps to Morocco local time / UTC+1 first. The `/usage` endpoint and sanitized quota helpers expose reset times as UTC-oriented timestamps; user-facing Telegram summaries should not dump raw UTC unless explicitly requested. Label the timezone clearly, e.g. `2026-05-22 22:44:12 UTC+1`, and keep UTC only as a secondary diagnostic value.
+
 For OpenAI Codex / ChatGPT multi-account dashboards, account selection is not just a quota-view filter. The selected account should write `model.provider=openai-codex` plus `model.credential_id=<credential_id>` so all new Hermes runtime paths that call `resolve_runtime_provider()` use that account. Render accounts as card-like UI, not a dropdown or flat row list, and state clearly that existing live sessions may need `/reset`, a new session, or process restart because API keys can already be resolved in memory. For Ayman's preferred Shadow Realm UX, account cards should be compact and clickable directly; avoid redundant “Use for Hermes chat” buttons, and merge duplicated active Codex model-card metadata into the selected account card when practical. Implementation notes and test targets live in `references/codex-account-cards-global-selection.md`.
 
 ## Build and Verification

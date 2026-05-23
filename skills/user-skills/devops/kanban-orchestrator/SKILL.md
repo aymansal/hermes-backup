@@ -9,6 +9,8 @@ metadata:
     related_skills: [kanban-worker]
 ---
 
+> Ayman-specific doctrine: before orchestrating his raids, load `references/ayman-kanban-review-doctrine.md` for routing, review-gate scope, same-worker iteration, POS/business review policy, and phase-change reporting expectations.
+
 # Kanban Orchestrator — Decomposition Playbook
 
 > The **core worker lifecycle** (including the `kanban_create` fan-out pattern and the "decompose, don't execute" rule) is auto-injected into every kanban process via the `KANBAN_GUIDANCE` system-prompt block. This skill is the deeper playbook when you're an orchestrator profile whose whole job is routing.
@@ -48,6 +50,11 @@ Your job description says "route, don't execute." The rules that enforce that:
 
 - **Do not execute the work yourself.** Your restricted toolset usually doesn't even include terminal/file/code/web for implementation. If you find yourself "just fixing this quickly" — stop and create a task for the right specialist.
 - **For any concrete task, create a Kanban task and assign it.** Every single time.
+- **Risk-based review gates, not blind review of everything.** Require GPT-5.5 review for code/config/deploy/cron/service/auth/business-critical work, memory/skills/routing docs, and other durable future-behavior changes. Simple research/scraping that only gathers public information can be reported directly with sources, confidence, and official-vs-anecdotal labels.
+- **Reviewer scope is narrow.** GPT-5.5 reviews only what the worker produced: result, diff, tests, artifacts, acceptance criteria, risks, and rollback notes. It must not redo the whole task unless the handoff is missing or suspicious.
+- **Failed work iterates back to the same worker.** If review returns BLOCKED, create a fix card with the exact failures and route it back to the same worker model/profile that produced the failed output. Escalate models only after repeated failed iterations or explicit user approval.
+- **Ayman model defaults:** coding uses OpenCode Go `deepseek-v4-flash`; UI/product/frontend visual work always uses `kimi-k2.6`; research/long docs use `kimi-k2.6`; memory/judgment curation uses `glm-5.1`; writing polish uses `minimax-m2.7`; final high-stakes review uses `gpt-5.5`. See `shadow-mission-orchestration/references/ayman-kanban-review-routing-doctrine.md` for the full doctrine.
+- **Use task-appropriate worker profiles, not `default`, for labor.** `default`/GPT-5.5 is the General/reviewer lane unless Ayman explicitly approves using it for implementation. Before implementation cards, verify or create an OpenCode Go worker profile from the routing codex (for example DeepSeek/Qwen coder profiles). For UI/product/frontend visual tasks, route to Kimi K2.6 by default unless the user explicitly chooses otherwise. Do not assign coding labor to `default` merely because no specialist profile exists.
 - **Split multi-lane requests before creating cards.** A user prompt can contain several independent workstreams. Extract those lanes first, then create one card per lane instead of bundling unrelated work into a single implementer card.
 - **Run independent lanes in parallel.** If two cards do not need each other's output, leave them unlinked so the dispatcher can fan them out. Link only true data dependencies.
 - **Never create dependent work as independent ready cards.** If a card must wait for another card, pass `parents=[...]` in the original `kanban_create` call. Do not create it first and link it later, and do not rely on prose like "wait for T1" inside the body.
@@ -148,6 +155,8 @@ Tell them what you created in plain prose, naming the actual profiles you used:
 >
 > The dispatcher will pick up T1 and T2 now. T3 starts when both finish. You'll get a gateway ping when T4 completes. Use the dashboard or `hermes kanban tail <id>` to follow along.
 
+Report phase changes promptly and do not make Ayman ask for status after a gate changes. For high-stakes raids, announce worker completion, review start, review PASS/BLOCKED, activation/config writes, cron creation, and restart/deploy approval gates as soon as they happen. If Ayman says he is waiting, actively poll the board until the worker/reviewer completes or blocks, then report immediately.
+
 ## Common patterns
 
 **Fan-out + fan-in (research → synthesize):** N research-style cards with no parents, one synthesis card with all of them as parents.
@@ -171,6 +180,8 @@ Tell them what you created in plain prose, naming the actual profiles you used:
 **Forgetting dependency links.** If the task graph says `research -> implement -> review`, do not create all tasks as independent ready cards. Use parent links so implement/review cannot run before their inputs exist.
 
 **Reassignment vs. new task.** If a reviewer blocks with "needs changes," create a NEW task linked from the reviewer's task — don't re-run the same task with a stern look. The new task is assigned to the original implementer profile.
+
+**Blocked review completion can accidentally promote unsafe downstream children.** When you mark a failed/blocked review as `done` only to unlock a fix iteration, inspect the full board immediately after dispatch. Any operational child that should still wait (cron/Raid Timer, deploy, restart, production activation, warmup, config enablement) may be promoted because its parent is now `done`. Reclaim and re-block those children immediately with an explicit reason. Better: when possible, create the fix card as the only child of the failed review and keep deploy/activation cards blocked until a later PASS review.
 
 **Argument order for links.** `kanban_link(parent_id=..., child_id=...)` — parent first. Mixing them up demotes the wrong task to `todo`.
 

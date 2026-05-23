@@ -2,6 +2,10 @@
 
 Session lesson: when Ayman asks about "NVIDIA voice model" or "Parakeet v2", do not assume he means GPU/CUDA. NVIDIA Parakeet is an ASR model family and can be discussed separately from GPU acceleration.
 
+## Approval discipline for STT changes
+
+Changing voice transcription often touches `.env`, `config.yaml`, and the live Telegram gateway. Do not store a pasted API key, switch `stt.provider`, install STT packages, or restart/resummon the gateway without first reporting the exact steps and waiting for Ayman's approval. If he says "use this key," treat that as permission to discuss/propose the setup unless he explicitly approves the write/restart sequence.
+
 ## Hermes integration point
 
 Hermes STT supports a local command bridge via:
@@ -86,6 +90,18 @@ HERMES_LOCAL_STT_COMMAND="/home/ubuntu/.hermes/parakeet-venv/bin/python /home/ub
 ```
 
 Then restart the gateway and verify with a Telegram voice message.
+
+## Cloud/API STT fallback
+
+Groq STT is a practical Hermes-supported fallback when the user accepts an external API, but do not confuse Groq (groq.com) with xAI Grok. Treat pricing/free-tier availability as current/provider-dependent rather than a durable guarantee. Configuration shape after approval:
+
+```bash
+hermes config set stt.enabled true
+hermes config set stt.provider groq
+hermes config set stt.groq.model whisper-large-v3-turbo
+```
+
+Store `GROQ_API_KEY` only in `.env`, never in memory/skills/log summaries. A gateway restart is normally required for a newly written `.env` key to reach the running Telegram process, but ask approval before restarting.
 
 ## Alternative bridge
 

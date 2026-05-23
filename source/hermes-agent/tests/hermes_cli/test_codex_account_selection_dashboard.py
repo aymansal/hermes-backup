@@ -65,6 +65,7 @@ def test_codex_account_rows_include_only_sanitized_quota(tmp_path, monkeypatch):
 
     assert rows[0]["selected"] is True
     assert rows[0]["has_refresh_token"] is True
+    assert rows[0]["quota_status"] == "ok"
     quota = rows[0]["quota"]
     assert quota == {
         "available": True,
