@@ -258,6 +258,10 @@ Escalate to Ayman when:
 
 Use delegate_task first unless the project is large enough for Kanban.
 
+For serious app/product architecture missions — especially Ayman's POS, ERP, CRM, inventory, dashboard, or admin-panel builds — load `ai-assisted-app-architecture-forge` before planning or dispatching coding workers. For Ayman's POS agency / SaaS / Convex / tenant-isolation work, also load `ayman-senior-app-forge`; it captures Ayman's Convex-first SaaS POS preference, shared-database tenant-isolation doctrine, legacy repo lessons, stack decision rules, file-size/boundary gates, POS/offline/printing rules, and reference-repo review doctrine.
+
+
+
 Recommended sequence:
 
 1. Planning Shadow: decomposes requirements.

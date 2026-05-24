@@ -1,6 +1,6 @@
 ---
 name: shadcn-ui-cli
-description: Use when installing, verifying, initializing, or using the shadcn CLI to add shadcn/ui components to a Next.js/React project, especially for the Sobhi Immobilier ERP dashboard, forms, dialogs, tables, tabs, and admin UI.
+description: Use when installing, verifying, initializing, or using the shadcn CLI to add shadcn/ui components to a Next.js/React project, especially for ImmoPilot ERP dashboards, forms, dialogs, tables, tabs, and admin UI. Sobhi Immobilier is tenant/client data only, not product identity.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -16,7 +16,7 @@ metadata:
 
 `shadcn` is the CLI for adding shadcn/ui components to React/Next.js apps. It does not behave like a normal component library that stays hidden inside `node_modules`; it writes component source files into the project so the app owns the UI code.
 
-Use this Skill Rune when preparing or modifying the UI layer for the Sobhi Immobilier / Moroccan promoteur immobilier ERP: dashboards, forms, dialogs, tables, project detail tabs, supplier profile cards, cost entry modals, and apartment inventory screens.
+Use this Skill Rune when preparing or modifying the UI layer for ImmoPilot, Ayman's Moroccan promoteur immobilier ERP. Sobhi Immobilier is the first tenant/client only, not the product identity. Use ImmoPilot naming for routes, packages, generic components, and shell branding; Sobhi may appear only as tenant/demo data. Relevant UI work includes dashboards, forms, dialogs, tables, project detail tabs, supplier profile cards, cost entry modals, and apartment inventory screens.
 
 Current Hermes VPS status discovered during setup:
 

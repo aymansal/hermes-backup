@@ -14,7 +14,14 @@ metadata:
 
 ## Overview
 
-This Skill Rune gives Hermes agents a curated set of public reference repos for building the Sobhi Immobilier / Moroccan promoteur immobilier ERP.
+This Skill Rune gives Hermes agents a curated set of public reference repos for building **ImmoPilot**, Ayman's Moroccan promoteur immobilier / real-estate developer ERP SaaS.
+
+Naming rule:
+
+- Product/platform: `ImmoPilot`.
+- First tenant/client: `Sobhi Immobilier`.
+- Tenant key: `organizationId`.
+- Do not hardcode Sobhi into app identity, routes, packages, generic components, Convex table names, or shared helpers.
 
 The goal is not to copy code blindly. The goal is to inspect real production-grade and domain-adjacent code with `opensrc`, learn architecture and patterns, then write original project-specific code for the ERP.
 
@@ -89,7 +96,7 @@ Incorrect use:
 
 ### Core MVP Reference Pack
 
-Fetch these first for Sobhi Immobilier ERP MVP:
+Fetch these first for ImmoPilot ERP MVP:
 
 ```bash
 opensrc path Kiranism/next-shadcn-dashboard-starter
@@ -553,7 +560,12 @@ rg "ColumnDef|useReactTable|getCoreRowModel|getPaginationRowModel" "$(opensrc pa
 Use this when assigning a coding worker:
 
 ```text
-You are implementing <FEATURE> for the Sobhi Immobilier Moroccan real-estate developer ERP.
+You are implementing <FEATURE> for ImmoPilot, Ayman's Moroccan real-estate developer ERP SaaS.
+
+Product/platform: ImmoPilot.
+First tenant/client: Sobhi Immobilier.
+Tenant key: organizationId.
+Do not hardcode Sobhi into product identity, routes, package names, table names, generic components, or shared helpers.
 
 Before coding, inspect these reference repos with opensrc:
 - <repo 1>: learn <specific pattern>

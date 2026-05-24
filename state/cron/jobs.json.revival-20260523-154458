@@ -27,13 +27,18 @@
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-22T09:57:27.043260+00:00",
-      "next_run_at": "2026-05-25T03:00:00+00:00",
+      "next_run_at": "2026-05-24T03:00:00+00:00",
       "last_run_at": "2026-05-23T15:26:59.515026+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
-      "deliver": "telegram",
-      "origin": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "758224059",
+        "chat_name": "Ayman",
+        "thread_id": null
+      },
       "enabled_toolsets": null,
       "workdir": null,
       "profile": null
@@ -65,12 +70,12 @@
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-22T16:36:03.933633+00:00",
-      "next_run_at": "2026-05-25T02:00:00+00:00",
+      "next_run_at": "2026-05-24T02:00:00+00:00",
       "last_run_at": "2026-05-23T14:14:54.339705+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
-      "deliver": "telegram",
+      "deliver": "telegram:758224059",
       "origin": null,
       "enabled_toolsets": [
         "session_search",
@@ -100,19 +105,19 @@
       "schedule_display": "*/10 * * * *",
       "repeat": {
         "times": null,
-        "completed": 182
+        "completed": 114
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-22T20:46:56.646694+00:00",
-      "next_run_at": "2026-05-24T03:10:00+00:00",
-      "last_run_at": "2026-05-24T03:00:06.921840+00:00",
+      "next_run_at": "2026-05-23T15:50:00+00:00",
+      "last_run_at": "2026-05-23T15:40:59.673571+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
-      "deliver": "telegram",
+      "deliver": "origin",
       "origin": {
         "platform": "telegram",
         "chat_id": "-1003650104887",
@@ -124,5 +129,5 @@
       "profile": null
     }
   ],
-  "updated_at": "2026-05-24T03:00:06.922322+00:00"
+  "updated_at": "2026-05-23T15:40:59.674027+00:00"
 }
