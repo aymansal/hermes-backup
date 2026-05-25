@@ -1306,24 +1306,11 @@ def resolve_runtime_provider(
             selected_credential_id = str(model_cfg.get("credential_id") or "").strip()
         entry = None
         if selected_credential_id:
-            rotation_cfg = {}
-            if provider == "openai-codex":
-                try:
-                    from agent.codex_quota import codex_quota_rotation_config
-
-                    rotation_cfg = codex_quota_rotation_config()
-                except Exception:
-                    rotation_cfg = {}
-            if rotation_cfg.get("enabled"):
-                entry = pool.select_codex_by_quota(
-                    selected_credential_id=selected_credential_id,
-                    threshold_percent=rotation_cfg.get("threshold_percent", 5),
-                    window_key=rotation_cfg.get("window_key", "primary"),
-                    prefer_reset_ending_soonest=rotation_cfg.get("prefer_reset_ending_soonest", True),
-                    max_quota_cache_age_seconds=rotation_cfg.get("max_quota_cache_age_seconds", 0),
-                )
-            else:
-                entry = pool.select_by_id(selected_credential_id)
+            # Manual Codex account selection is authoritative.  Do not let
+            # quota/reset metadata proactively switch the selected ChatGPT
+            # account: the dashboard's selected credential is the credential
+            # Hermes must use until the operator selects another one.
+            entry = pool.select_by_id(selected_credential_id)
             if entry is None:
                 raise AuthError(
                     f"Selected OpenAI Codex credential {selected_credential_id!r} is unavailable. Choose another ChatGPT account in the Models screen or clear model.credential_id.",

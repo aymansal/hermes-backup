@@ -1,11 +1,21 @@
 diff --git a/agent/agent_runtime_helpers.py b/agent/agent_runtime_helpers.py
-index b98fe4b44..bbb0752d6 100644
+index b98fe4b44..d4495c6b7 100644
 --- a/agent/agent_runtime_helpers.py
 +++ b/agent/agent_runtime_helpers.py
-@@ -559,6 +559,21 @@ def recover_with_credential_pool(
+@@ -559,6 +559,31 @@ def recover_with_credential_pool(
      if pool is None:
          return False, has_retried_429
  
++    def _codex_auto_switching_enabled() -> bool:
++        if (agent.provider or "") != "openai-codex":
++            return True
++        try:
++            from agent.codex_quota import codex_quota_rotation_config
++
++            return bool(codex_quota_rotation_config().get("enabled"))
++        except Exception:
++            return False
++
 +    def _persist_runtime_switch_if_enabled(next_entry) -> None:
 +        if (agent.provider or "") != "openai-codex" or next_entry is None:
 +            return
@@ -24,7 +34,20 @@ index b98fe4b44..bbb0752d6 100644
      effective_reason = classified_reason
      if effective_reason is None:
          if status_code == 402:
-@@ -578,6 +593,7 @@ def recover_with_credential_pool(
+@@ -569,6 +594,12 @@ def recover_with_credential_pool(
+             effective_reason = FailoverReason.auth
+ 
+     if effective_reason == FailoverReason.billing:
++        if not _codex_auto_switching_enabled():
++            _ra().logger.info(
++                "Credential %s (billing) — Codex auto-switching disabled; keeping selected account",
++                status_code if status_code is not None else 402,
++            )
++            return False, has_retried_429
+         rotate_status = status_code if status_code is not None else 402
+         next_entry = pool.mark_exhausted_and_rotate(status_code=rotate_status, error_context=error_context)
+         if next_entry is not None:
+@@ -578,6 +609,7 @@ def recover_with_credential_pool(
                  getattr(next_entry, "id", "?"),
              )
              agent._swap_credential(next_entry)
@@ -32,7 +55,20 @@ index b98fe4b44..bbb0752d6 100644
              return True, False
          return False, has_retried_429
  
-@@ -601,6 +617,7 @@ def recover_with_credential_pool(
+@@ -592,6 +624,12 @@ def recover_with_credential_pool(
+             )
+         if not has_retried_429 and not usage_limit_reached:
+             return False, True
++        if not _codex_auto_switching_enabled():
++            _ra().logger.info(
++                "Credential %s (rate limit) — Codex auto-switching disabled; keeping selected account",
++                status_code if status_code is not None else 429,
++            )
++            return False, True
+         rotate_status = status_code if status_code is not None else 429
+         next_entry = pool.mark_exhausted_and_rotate(status_code=rotate_status, error_context=error_context)
+         if next_entry is not None:
+@@ -601,6 +639,7 @@ def recover_with_credential_pool(
                  getattr(next_entry, "id", "?"),
              )
              agent._swap_credential(next_entry)
@@ -40,7 +76,25 @@ index b98fe4b44..bbb0752d6 100644
              return True, False
          return False, True
  
-@@ -645,6 +662,7 @@ def recover_with_credential_pool(
+@@ -634,8 +673,15 @@ def recover_with_credential_pool(
+             _ra().logger.info(f"Credential auth failure — refreshed pool entry {getattr(refreshed, 'id', '?')}")
+             agent._swap_credential(refreshed)
+             return True, has_retried_429
+-        # Refresh failed — rotate to next credential instead of giving up.
+-        # The failed entry is already marked exhausted by try_refresh_current().
++        # Refresh failed.  When Codex auto-switching is disabled, surface the
++        # selected account failure instead of silently moving to another
++        # dashboard account.
++        if not _codex_auto_switching_enabled():
++            _ra().logger.info(
++                "Credential %s (auth refresh failed) — Codex auto-switching disabled; keeping selected account",
++                status_code if status_code is not None else 401,
++            )
++            return False, has_retried_429
+         rotate_status = status_code if status_code is not None else 401
+         next_entry = pool.mark_exhausted_and_rotate(status_code=rotate_status, error_context=error_context)
+         if next_entry is not None:
+@@ -645,6 +691,7 @@ def recover_with_credential_pool(
                  getattr(next_entry, "id", "?"),
              )
              agent._swap_credential(next_entry)
@@ -49,7 +103,7 @@ index b98fe4b44..bbb0752d6 100644
  
      return False, has_retried_429
 diff --git a/agent/credential_pool.py b/agent/credential_pool.py
-index 9a5cc20fe..dca908d2f 100644
+index 9a5cc20fe..ca752d843 100644
 --- a/agent/credential_pool.py
 +++ b/agent/credential_pool.py
 @@ -86,7 +86,8 @@ CUSTOM_POOL_PREFIX = "custom:"
@@ -79,7 +133,7 @@ index 9a5cc20fe..dca908d2f 100644
      def current(self) -> Optional[PooledCredential]:
          if not self._current_id:
              return None
-@@ -1135,6 +1146,91 @@ class CredentialPool:
+@@ -1135,6 +1146,93 @@ class CredentialPool:
          with self._lock:
              return self._select_unlocked()
  
@@ -126,6 +180,7 @@ index 9a5cc20fe..dca908d2f 100644
 +        window_key: str = "primary",
 +        prefer_reset_ending_soonest: bool = True,
 +        max_quota_cache_age_seconds: int = 0,
++        min_reset_lead_seconds: int = 0,
 +    ) -> Optional[PooledCredential]:
 +        """Select a Codex credential using cached quota metadata.
 +
@@ -155,6 +210,7 @@ index 9a5cc20fe..dca908d2f 100644
 +                    window_key=window_key,
 +                    prefer_reset_ending_soonest=prefer_reset_ending_soonest,
 +                    max_quota_cache_age_seconds=max_quota_cache_age_seconds,
++                    min_reset_lead_seconds=min_reset_lead_seconds,
 +                )
 +            except Exception:
 +                entry = None
@@ -171,6 +227,60 @@ index 9a5cc20fe..dca908d2f 100644
      def _available_entries(self, *, clear_expired: bool = False, refresh: bool = False) -> List[PooledCredential]:
          """Return entries not currently in exhaustion cooldown.
  
+@@ -1273,7 +1371,52 @@ class CredentialPool:
+             )
+             self._mark_exhausted(entry, status_code, error_context)
+             self._current_id = None
+-            next_entry = self._select_unlocked()
++            if self.provider == "openai-codex":
++                try:
++                    from agent.codex_quota import codex_quota_rotation_config
++
++                    if not codex_quota_rotation_config().get("enabled"):
++                        logger.info(
++                            "credential pool: Codex auto-switching disabled; not rotating away from selected account"
++                        )
++                        return None
++                except Exception:
++                    logger.info(
++                        "credential pool: Codex auto-switching disabled by default; not rotating away from selected account"
++                    )
++                    return None
++            next_entry = None
++            quota_rotation_attempted = False
++            if self.provider == "openai-codex":
++                try:
++                    from agent.codex_quota import codex_quota_rotation_config, choose_codex_quota_candidate
++
++                    rotation_cfg = codex_quota_rotation_config()
++                    if rotation_cfg.get("enabled"):
++                        quota_rotation_attempted = True
++                        available = self._available_entries(clear_expired=True, refresh=True)
++                        next_entry, meta = choose_codex_quota_candidate(
++                            available,
++                            current_id="",
++                            threshold_percent=rotation_cfg.get("threshold_percent", 5),
++                            window_key=rotation_cfg.get("window_key", "primary"),
++                            prefer_reset_ending_soonest=rotation_cfg.get("prefer_reset_ending_soonest", True),
++                            max_quota_cache_age_seconds=rotation_cfg.get("max_quota_cache_age_seconds", 0),
++                            min_reset_lead_seconds=rotation_cfg.get("min_reset_lead_seconds", 0),
++                            fallback_to_first=False,
++                        )
++                        if next_entry is not None:
++                            self._current_id = next_entry.id
++                            logger.info(
++                                "credential pool: Codex quota-aware reactive rotation selected %s (%s)",
++                                next_entry.label or next_entry.id[:8],
++                                meta.get("reason"),
++                            )
++                except Exception:
++                    quota_rotation_attempted = False
++                    logger.debug("Codex quota-aware reactive rotation failed; using pool strategy", exc_info=True)
++            if next_entry is None and not quota_rotation_attempted:
++                next_entry = self._select_unlocked()
+             if next_entry:
+                 _next_label = next_entry.label or next_entry.id[:8]
+                 logger.info("credential pool: rotated to %s", _next_label)
 diff --git a/gateway/run.py b/gateway/run.py
 index cca9901cb..be8c8078f 100644
 --- a/gateway/run.py
@@ -383,10 +493,10 @@ index 9d3fea252..82fa35255 100644
 +        quota_timezone=cfg.get("timezone"),
      )
 diff --git a/hermes_cli/config.py b/hermes_cli/config.py
-index 8d4484fad..cffa27bef 100644
+index 8d4484fad..4a6117c7c 100644
 --- a/hermes_cli/config.py
 +++ b/hermes_cli/config.py
-@@ -505,6 +505,22 @@ DEFAULT_CONFIG = {
+@@ -505,6 +505,23 @@ DEFAULT_CONFIG = {
      "providers": {},
      "fallback_providers": [],
      "credential_pool_strategies": {},
@@ -397,6 +507,7 @@ index 8d4484fad..cffa27bef 100644
 +        "max_quota_cache_age_seconds": 900,
 +        "persist_runtime_switch": False,
 +        "prefer_reset_ending_soonest": True,
++        "min_reset_lead_seconds": 3600,
 +    },
 +    "codex_warmup": {
 +        "enabled": False,
@@ -492,10 +603,10 @@ index 7a30b7098..71a0343eb 100644
  
  def recompute_ready(conn: sqlite3.Connection) -> int:
 diff --git a/hermes_cli/runtime_provider.py b/hermes_cli/runtime_provider.py
-index c40316e02..fa8a60b66 100644
+index c40316e02..1d2242b54 100644
 --- a/hermes_cli/runtime_provider.py
 +++ b/hermes_cli/runtime_provider.py
-@@ -1301,7 +1301,38 @@ def resolve_runtime_provider(
+@@ -1301,7 +1301,25 @@ def resolve_runtime_provider(
      except Exception:
          pool = None
      if pool and pool.has_credentials():
@@ -505,24 +616,11 @@ index c40316e02..fa8a60b66 100644
 +            selected_credential_id = str(model_cfg.get("credential_id") or "").strip()
 +        entry = None
 +        if selected_credential_id:
-+            rotation_cfg = {}
-+            if provider == "openai-codex":
-+                try:
-+                    from agent.codex_quota import codex_quota_rotation_config
-+
-+                    rotation_cfg = codex_quota_rotation_config()
-+                except Exception:
-+                    rotation_cfg = {}
-+            if rotation_cfg.get("enabled"):
-+                entry = pool.select_codex_by_quota(
-+                    selected_credential_id=selected_credential_id,
-+                    threshold_percent=rotation_cfg.get("threshold_percent", 5),
-+                    window_key=rotation_cfg.get("window_key", "primary"),
-+                    prefer_reset_ending_soonest=rotation_cfg.get("prefer_reset_ending_soonest", True),
-+                    max_quota_cache_age_seconds=rotation_cfg.get("max_quota_cache_age_seconds", 0),
-+                )
-+            else:
-+                entry = pool.select_by_id(selected_credential_id)
++            # Manual Codex account selection is authoritative.  Do not let
++            # quota/reset metadata proactively switch the selected ChatGPT
++            # account: the dashboard's selected credential is the credential
++            # Hermes must use until the operator selects another one.
++            entry = pool.select_by_id(selected_credential_id)
 +            if entry is None:
 +                raise AuthError(
 +                    f"Selected OpenAI Codex credential {selected_credential_id!r} is unavailable. Choose another ChatGPT account in the Models screen or clear model.credential_id.",
@@ -536,7 +634,7 @@ index c40316e02..fa8a60b66 100644
          if entry is not None:
              pool_api_key = (
 diff --git a/hermes_cli/web_server.py b/hermes_cli/web_server.py
-index 7d28ce076..90f63d44d 100644
+index 7d28ce076..07c9644e2 100644
 --- a/hermes_cli/web_server.py
 +++ b/hermes_cli/web_server.py
 @@ -15,6 +15,7 @@ import importlib.util
@@ -567,7 +665,7 @@ index 7d28ce076..90f63d44d 100644
  _GATEWAY_HEALTH_URL = os.getenv("GATEWAY_HEALTH_URL")
  try:
      _GATEWAY_HEALTH_TIMEOUT = float(os.getenv("GATEWAY_HEALTH_TIMEOUT", "3"))
-@@ -1002,6 +1007,308 @@ def get_model_options():
+@@ -1002,6 +1007,337 @@ def get_model_options():
          raise HTTPException(status_code=500, detail="Failed to list model options")
  
  
@@ -650,6 +748,7 @@ index 7d28ce076..90f63d44d 100644
 +    rows: List[Dict[str, Any]] = []
 +    if not isinstance(entries, list):
 +        return rows
++    pooled_entries = []
 +    for idx, entry in enumerate(entries, start=1):
 +        if not isinstance(entry, dict):
 +            continue
@@ -680,6 +779,46 @@ index 7d28ce076..90f63d44d 100644
 +            "quota_status": quota_status,
 +            "quota": quota,
 +        })
++        try:
++            from agent.credential_pool import PooledCredential
++
++            pooled_entries.append(PooledCredential.from_dict("openai-codex", entry))
++        except Exception:
++            pass
++    if rows and pooled_entries:
++        try:
++            from agent.codex_quota import codex_quota_rotation_config, rank_codex_accounts_by_quota
++
++            rotation_cfg = codex_quota_rotation_config(load_config())
++            ranked = rank_codex_accounts_by_quota(
++                pooled_entries,
++                current_id=selected_id,
++                threshold_percent=rotation_cfg.get("threshold_percent", 5),
++                window_key=rotation_cfg.get("window_key", "primary"),
++                prefer_reset_ending_soonest=rotation_cfg.get("prefer_reset_ending_soonest", True),
++                max_quota_cache_age_seconds=rotation_cfg.get("max_quota_cache_age_seconds", 0),
++                min_reset_lead_seconds=rotation_cfg.get("min_reset_lead_seconds", 0),
++            )
++            rank_by_id = {str(row.get("id") or ""): row for row in ranked}
++            eligible_ids = [
++                str(row.get("id") or "")
++                for row in ranked
++                if row.get("weekly_healthy") and row.get("above_threshold")
++            ]
++            auto_candidate_id = eligible_ids[0] if eligible_ids else ""
++            for row in rows:
++                rank_row = rank_by_id.get(str(row.get("id") or ""))
++                if not rank_row:
++                    continue
++                row["quota_rank"] = ranked.index(rank_row) + 1
++                row["auto_candidate"] = bool(auto_candidate_id and row.get("id") == auto_candidate_id)
++                row["rotation_eligible"] = bool(rank_row.get("weekly_healthy") and rank_row.get("above_threshold"))
++                row["weekly_healthy"] = bool(rank_row.get("weekly_healthy"))
++                row["stale_quota"] = bool(rank_row.get("stale_quota"))
++                row["reset_lead_seconds"] = rank_row.get("reset_lead_seconds")
++                row["reset_lead_eligible"] = bool(rank_row.get("reset_lead_eligible"))
++        except Exception:
++            _log.debug("Failed to attach Codex quota rotation metadata to account rows", exc_info=True)
 +    return rows
 +
 +
@@ -772,9 +911,6 @@ index 7d28ce076..90f63d44d 100644
 +            model_cfg = {}
 +        selected_id = str(model_cfg.get("credential_id") or "").strip()
 +        accounts = _codex_account_rows(selected_id)
-+        if not selected_id and accounts:
-+            accounts[0]["selected"] = True
-+            selected_id = str(accounts[0].get("id") or "")
 +        return {
 +            "provider": "openai-codex",
 +            "selected_id": selected_id,
@@ -841,23 +977,14 @@ index 7d28ce076..90f63d44d 100644
 +            model_cfg = {"default": str(model_cfg or "")}
 +        selected_id = str(model_cfg.get("credential_id") or "").strip()
 +        if selected_id == removed.id:
-+            remaining = _codex_account_rows("")
-+            if remaining:
-+                selected_id = str(remaining[0].get("id") or "")
-+                model_cfg["provider"] = "openai-codex"
-+                model_cfg["credential_id"] = selected_id
-+            else:
-+                selected_id = ""
-+                model_cfg.pop("credential_id", None)
++            selected_id = ""
++            model_cfg.pop("credential_id", None)
 +            cfg["model"] = model_cfg
 +            save_config(cfg)
 +        else:
 +            selected_id = selected_id or ""
 +
 +        accounts = _codex_account_rows(selected_id)
-+        if not selected_id and accounts:
-+            accounts[0]["selected"] = True
-+            selected_id = str(accounts[0].get("id") or "")
 +        _log.info("oauth/codex-account: removed credential=%s", removed.id)
 +        return {
 +            "ok": True,
@@ -876,7 +1003,7 @@ index 7d28ce076..90f63d44d 100644
  @app.get("/api/model/auxiliary")
  def get_auxiliary_models():
      """Return current auxiliary task assignments.
-@@ -1813,12 +2120,14 @@ def _submit_anthropic_pkce(session_id: str, code_input: str) -> Dict[str, Any]:
+@@ -1813,12 +2149,14 @@ def _submit_anthropic_pkce(session_id: str, code_input: str) -> Dict[str, Any]:
      return {"ok": True, "status": "approved"}
  
  
@@ -892,7 +1019,7 @@ index 7d28ce076..90f63d44d 100644
      """
      if provider_id == "nous":
          from hermes_cli.auth import (
-@@ -1876,7 +2185,9 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
+@@ -1876,7 +2214,9 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
  
      if provider_id == "openai-codex":
          # Codex uses fixed OpenAI device-auth endpoints; reuse the helper.
@@ -903,7 +1030,7 @@ index 7d28ce076..90f63d44d 100644
          # Use the helper but in a thread because it polls inline.
          # We can't extract just the start step without refactoring auth.py,
          # so we run the full helper in a worker and proxy the user_code +
-@@ -2237,34 +2548,85 @@ def _codex_full_login_worker(session_id: str) -> None:
+@@ -2237,34 +2577,85 @@ def _codex_full_login_worker(session_id: str) -> None:
          if not access_token:
              raise RuntimeError("token exchange did not return access_token")
  
@@ -1003,7 +1130,7 @@ index 7d28ce076..90f63d44d 100644
      except Exception as e:
          _log.warning("codex device-code worker failed (session=%s): %s", session_id, e)
          with _oauth_sessions_lock:
-@@ -2289,6 +2651,16 @@ async def start_oauth_login(provider_id: str, request: Request):
+@@ -2289,6 +2680,16 @@ async def start_oauth_login(provider_id: str, request: Request):
              detail=f"{provider_id} uses an external CLI; run `{catalog_entry['cli_command']}` manually",
          )
      try:
@@ -1020,7 +1147,7 @@ index 7d28ce076..90f63d44d 100644
          # The pkce branch is gated on provider_id == "anthropic" because
          # `_start_anthropic_pkce()` is hardcoded to the Anthropic flow.
          # Routing any other future pkce-flagged provider through it would
-@@ -2298,7 +2670,7 @@ async def start_oauth_login(provider_id: str, request: Request):
+@@ -2298,7 +2699,7 @@ async def start_oauth_login(provider_id: str, request: Request):
          if catalog_entry["flow"] == "pkce" and provider_id == "anthropic":
              return _start_anthropic_pkce()
          if catalog_entry["flow"] == "device_code":
@@ -1029,7 +1156,7 @@ index 7d28ce076..90f63d44d 100644
      except HTTPException:
          raise
      except Exception as e:
-@@ -3294,15 +3666,24 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
+@@ -3294,15 +3695,24 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
  
  
  def _is_public_bind() -> bool:
@@ -1057,7 +1184,7 @@ index 7d28ce076..90f63d44d 100644
      """
      if _is_public_bind():
          return True
-@@ -4544,6 +4925,7 @@ def start_server(
+@@ -4544,6 +4954,7 @@ def start_server(
      # PTY child uses to publish events to the dashboard sidebar.
      app.state.bound_host = host
      app.state.bound_port = port
@@ -1983,10 +2110,56 @@ index a97ddbbe1..1b55599f8 100644
 +    finally:
 +        conn.close()
 diff --git a/tests/hermes_cli/test_runtime_provider_resolution.py b/tests/hermes_cli/test_runtime_provider_resolution.py
-index 394216c91..0e43c24e3 100644
+index 394216c91..685516f2c 100644
 --- a/tests/hermes_cli/test_runtime_provider_resolution.py
 +++ b/tests/hermes_cli/test_runtime_provider_resolution.py
-@@ -2701,3 +2701,86 @@ def test_host_derived_key_helper_basic_cases():
+@@ -3,6 +3,45 @@ import pytest
+ from hermes_cli import runtime_provider as rp
+ 
+ 
++def test_resolve_runtime_provider_honors_manual_codex_selection_without_persisting_auto_switch(monkeypatch):
++    calls = []
++
++    class _Entry:
++        id = "selected"
++        access_token = "selected-token"
++        source = "device_code"
++        base_url = "https://chatgpt.com/backend-api/codex"
++
++    class _Pool:
++        def has_credentials(self):
++            return True
++
++        def select_by_id(self, credential_id):
++            calls.append(("select_by_id", credential_id))
++            return _Entry()
++
++        def select_codex_by_quota(self, **kwargs):  # pragma: no cover - must not be called
++            calls.append(("select_codex_by_quota", kwargs))
++            raise AssertionError("manual Codex selection must not use quota auto-switching")
++
++    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "openai-codex")
++    monkeypatch.setattr(rp, "_get_model_config", lambda: {"provider": "openai-codex", "credential_id": "selected"})
++    monkeypatch.setattr(rp, "load_pool", lambda provider: _Pool())
++
++    import agent.codex_quota as codex_quota
++
++    monkeypatch.setattr(
++        codex_quota,
++        "persist_selected_codex_credential_id",
++        lambda credential_id, *, reason: calls.append(("persist", credential_id, reason)) or True,
++    )
++
++    resolved = rp.resolve_runtime_provider(requested="openai-codex")
++
++    assert resolved["api_key"] == "selected-token"
++    assert calls == [("select_by_id", "selected")]
++
++
+ def test_resolve_runtime_provider_uses_credential_pool(monkeypatch):
+     class _Entry:
+         access_token = "pool-token"
+@@ -2701,3 +2740,75 @@ def test_host_derived_key_helper_basic_cases():
      for k in ("DEEPSEEK_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY",
                "OPENAI_API_KEY", "OPENROUTER_API_KEY"):
          _os.environ.pop(k, None)
@@ -2024,7 +2197,7 @@ index 394216c91..0e43c24e3 100644
 +    assert calls == [("select_by_id", "selected")]
 +
 +
-+def test_codex_pinned_selection_uses_quota_selector_when_enabled(monkeypatch):
++def test_codex_pinned_selection_uses_manual_credential_even_when_quota_rotation_config_exists(monkeypatch):
 +    calls = []
 +
 +    class _Entry:
@@ -2061,18 +2234,7 @@ index 394216c91..0e43c24e3 100644
 +    resolved = rp.resolve_runtime_provider(requested="openai-codex")
 +
 +    assert resolved["api_key"] == "candidate-token"
-+    assert calls == [
-+        (
-+            "select_codex_by_quota",
-+            {
-+                "selected_credential_id": "selected",
-+                "threshold_percent": 5,
-+                "window_key": "primary",
-+                "prefer_reset_ending_soonest": True,
-+                "max_quota_cache_age_seconds": 0,
-+            },
-+        )
-+    ]
++    assert calls == [("select_by_id", "selected")]
 diff --git a/tests/hermes_cli/test_web_server.py b/tests/hermes_cli/test_web_server.py
 index f5c062056..614769888 100644
 --- a/tests/hermes_cli/test_web_server.py
@@ -2567,7 +2729,7 @@ index b7e2ba6c5..95049f24e 100644
    scope: "main" | "auxiliary";
    provider: string;
 diff --git a/web/src/pages/ModelsPage.tsx b/web/src/pages/ModelsPage.tsx
-index 1359cbd9f..abe0f1aff 100644
+index 1359cbd9f..7862f814b 100644
 --- a/web/src/pages/ModelsPage.tsx
 +++ b/web/src/pages/ModelsPage.tsx
 @@ -16,6 +16,8 @@ import { api } from "@/lib/api";
@@ -2813,7 +2975,7 @@ index 1359cbd9f..abe0f1aff 100644
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
    const [saveKey, setSaveKey] = useState(0);
-@@ -797,15 +1019,40 @@ export default function ModelsPage() {
+@@ -797,15 +1019,44 @@ export default function ModelsPage() {
      Promise.all([
        api.getModelsAnalytics(days),
        api.getAuxiliaryModels().catch(() => null),
@@ -2834,10 +2996,14 @@ index 1359cbd9f..abe0f1aff 100644
 +  useEffect(() => {
 +    let cancelled = false;
 +    const refreshQuota = () => {
-+      api
-+        .getModelQuota()
-+        .then((quotaData) => {
-+          if (!cancelled) setQuota(quotaData);
++      Promise.all([
++        api.getModelQuota().catch(() => null),
++        api.getCodexAccounts().catch(() => null),
++      ])
++        .then(([quotaData, accountData]) => {
++          if (cancelled) return;
++          if (quotaData) setQuota(quotaData);
++          if (accountData) setCodexAccounts(accountData);
 +        })
 +        .catch(() => {
 +          // Keep the last good quota visible; transient quota fetch failures
@@ -2855,7 +3021,7 @@ index 1359cbd9f..abe0f1aff 100644
    const onAssigned = useCallback(() => {
      // Reload aux state after any assignment change.
      api
-@@ -815,6 +1062,22 @@ export default function ModelsPage() {
+@@ -815,6 +1066,22 @@ export default function ModelsPage() {
      setSaveKey((k) => k + 1);
    }, []);
  
@@ -2878,7 +3044,7 @@ index 1359cbd9f..abe0f1aff 100644
    useLayoutEffect(() => {
      const periodLabel =
        PERIODS.find((p) => p.days === days)?.label ?? `${days}d`;
-@@ -863,6 +1126,21 @@ export default function ModelsPage() {
+@@ -863,6 +1130,21 @@ export default function ModelsPage() {
      load();
    }, [load]);
  
@@ -2900,7 +3066,7 @@ index 1359cbd9f..abe0f1aff 100644
    return (
      <div className="flex min-w-0 max-w-full flex-col gap-6">
        <PluginSlot name="models:top" />
-@@ -937,6 +1215,19 @@ export default function ModelsPage() {
+@@ -937,6 +1219,19 @@ export default function ModelsPage() {
              </CardContent>
            </Card>
          )}
@@ -2920,7 +3086,7 @@ index 1359cbd9f..abe0f1aff 100644
        </div>
  
        {loading && !data && (
-@@ -953,36 +1244,37 @@ export default function ModelsPage() {
+@@ -953,36 +1248,37 @@ export default function ModelsPage() {
          </Card>
        )}
  

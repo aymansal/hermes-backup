@@ -1086,6 +1086,7 @@ def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     if not isinstance(entries, list):
         return rows
+    pooled_entries = []
     for idx, entry in enumerate(entries, start=1):
         if not isinstance(entry, dict):
             continue
@@ -1116,6 +1117,46 @@ def _codex_account_rows(selected_id: str = "") -> List[Dict[str, Any]]:
             "quota_status": quota_status,
             "quota": quota,
         })
+        try:
+            from agent.credential_pool import PooledCredential
+
+            pooled_entries.append(PooledCredential.from_dict("openai-codex", entry))
+        except Exception:
+            pass
+    if rows and pooled_entries:
+        try:
+            from agent.codex_quota import codex_quota_rotation_config, rank_codex_accounts_by_quota
+
+            rotation_cfg = codex_quota_rotation_config(load_config())
+            ranked = rank_codex_accounts_by_quota(
+                pooled_entries,
+                current_id=selected_id,
+                threshold_percent=rotation_cfg.get("threshold_percent", 5),
+                window_key=rotation_cfg.get("window_key", "primary"),
+                prefer_reset_ending_soonest=rotation_cfg.get("prefer_reset_ending_soonest", True),
+                max_quota_cache_age_seconds=rotation_cfg.get("max_quota_cache_age_seconds", 0),
+                min_reset_lead_seconds=rotation_cfg.get("min_reset_lead_seconds", 0),
+            )
+            rank_by_id = {str(row.get("id") or ""): row for row in ranked}
+            eligible_ids = [
+                str(row.get("id") or "")
+                for row in ranked
+                if row.get("weekly_healthy") and row.get("above_threshold")
+            ]
+            auto_candidate_id = eligible_ids[0] if eligible_ids else ""
+            for row in rows:
+                rank_row = rank_by_id.get(str(row.get("id") or ""))
+                if not rank_row:
+                    continue
+                row["quota_rank"] = ranked.index(rank_row) + 1
+                row["auto_candidate"] = bool(auto_candidate_id and row.get("id") == auto_candidate_id)
+                row["rotation_eligible"] = bool(rank_row.get("weekly_healthy") and rank_row.get("above_threshold"))
+                row["weekly_healthy"] = bool(rank_row.get("weekly_healthy"))
+                row["stale_quota"] = bool(rank_row.get("stale_quota"))
+                row["reset_lead_seconds"] = rank_row.get("reset_lead_seconds")
+                row["reset_lead_eligible"] = bool(rank_row.get("reset_lead_eligible"))
+        except Exception:
+            _log.debug("Failed to attach Codex quota rotation metadata to account rows", exc_info=True)
     return rows
 
 
@@ -1208,9 +1249,6 @@ def get_codex_accounts():
             model_cfg = {}
         selected_id = str(model_cfg.get("credential_id") or "").strip()
         accounts = _codex_account_rows(selected_id)
-        if not selected_id and accounts:
-            accounts[0]["selected"] = True
-            selected_id = str(accounts[0].get("id") or "")
         return {
             "provider": "openai-codex",
             "selected_id": selected_id,
@@ -1277,23 +1315,14 @@ async def remove_codex_account(credential_id: str, request: Request):
             model_cfg = {"default": str(model_cfg or "")}
         selected_id = str(model_cfg.get("credential_id") or "").strip()
         if selected_id == removed.id:
-            remaining = _codex_account_rows("")
-            if remaining:
-                selected_id = str(remaining[0].get("id") or "")
-                model_cfg["provider"] = "openai-codex"
-                model_cfg["credential_id"] = selected_id
-            else:
-                selected_id = ""
-                model_cfg.pop("credential_id", None)
+            selected_id = ""
+            model_cfg.pop("credential_id", None)
             cfg["model"] = model_cfg
             save_config(cfg)
         else:
             selected_id = selected_id or ""
 
         accounts = _codex_account_rows(selected_id)
-        if not selected_id and accounts:
-            accounts[0]["selected"] = True
-            selected_id = str(accounts[0].get("id") or "")
         _log.info("oauth/codex-account: removed credential=%s", removed.id)
         return {
             "ok": True,

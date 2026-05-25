@@ -43,6 +43,8 @@ Before coding, collect or derive:
 - reference repos/docs to inspect
 - quality gates available in the repo
 
+- Reference repos/docs to inspect include the persistent ERPNext clone at `/home/ubuntu/.hermes/workspaces/reference-repos/erpnext` for ERP domain concepts. Use it as a benchmark/reference only, not as ImmoPilot's foundation unless Ayman explicitly chooses a full Frappe/Python/MariaDB stack pivot.
+
 Do not guess Access Keys or deploy targets. Do not start implementation before the architecture and acceptance gates exist.
 
 ## Current SaaS doctrine — ImmoPilot first
@@ -63,11 +65,18 @@ Default ImmoPilot stack:
 - one main codebase
 - one main Vercel deployment
 - one shared Convex backend/database
+- two controlled surfaces: platform/operator dashboard for Ayman-side SaaS operations, and tenant ERP app for client organizations
+- platform/operator dashboard manages tenant onboarding, client/payment status, invites/credentials, support, audit visibility, and tenant suspend/reactivate controls
+- tenant ERP app serves client organizations such as Sobhi Immobilier and scopes all tenant data by `organizationId`
 - many organizations/companies as tenants
 - tenant isolation by `organizationId`
 - Convex functions enforcing membership and permissions
+- platform/operator permissions separate from tenant roles
+- security baseline includes backend authz, rate limiting for abusive/expensive flows, audit logs, safe credential handling, file security, secret hygiene, validation, safe errors, and production security gates
+- during ImmoPilot local development, keep WARP off unless Ayman explicitly approves turning it on for a specific need; Tailscale/dev preview checks should not silently re-enable it
 - real-estate hierarchy: Organization → Project → Tranche → Bloc → Building → Floor → Apartment
 - auditable cost/profit flows
+- employee/staff registry and payroll/salary tracking are required ImmoPilot modules; monthly salary payment status, payroll permissions, and payroll audit logs must be designed before implementation
 
 POS products are later modules/products, not the first SaaS schema driver. Snack-spana, ElectroMA, Samurai-style retail, and general POS can be added after ImmoPilot's foundation is stable.
 
@@ -152,6 +161,7 @@ Important files include:
 
 - `STACK_DECISION_RULES.md`
 - `IMMOPILOT_SAAS_ARCHITECTURE.md`
+- `IMMOPILOT_SAAS_OPERATOR_AND_SECURITY.md`
 - `IMMOPILOT_CONVEX_SCHEMA_BLUEPRINT.md`
 - `IMMOPILOT_UI_DOCTRINE.md`
 - `IMMOPILOT_UI_REFERENCE_PACK.md`
@@ -184,9 +194,12 @@ When working on an actual repo, read the relevant files before creating implemen
 9. **Screen blueprints** — define each important screen's purpose, layout, required states, and mobile behavior.
 10. **Kanban cards** — split into small tasks with acceptance criteria and review gates. For Ayman, it is acceptable to consciously skip full Kanban for low-risk local bootstrap/status work, but state that decision briefly; forgetting Kanban discipline is the problem, not making an explicit low-risk commander call.
 11. **Worker implementation** — workers implement only one card/slice at a time.
-12. **Independent review** — GPT-5.5/reviewer checks architecture, security, tenant isolation, UI, and tests.
-13. **Iteration loop** — failed review returns to worker with exact failures.
-14. **Commander verification** — Igris verifies evidence before reporting PASS.
+12. **Hallmark UI audit** — for important UI screens/components, automatically apply Hallmark-style anti-slop review before PASS. It audits/polishes only; it does not override ImmoPilot doctrine, `DESIGN.md`, tenant workflows, or ERP clarity.
+13. **Independent review** — GPT-5.5/reviewer checks architecture, security, tenant isolation, UI, and tests.
+14. **Iteration loop** — failed review returns to worker with exact failures.
+15. **Commander verification** — Igris verifies evidence before reporting PASS.
+16. **Active phase reporting** — for Ayman's ImmoPilot raids, report phase changes immediately: worker started, worker completed/blocked, reviewer started, review PASS/BLOCKED, fix iteration spawned, approval gate opened, commit checkpoint created. Do not wait for Ayman to ask after a card finishes; silence after a phase transition is a commander failure.
+17. **Revival Stone checkpoint** — for ImmoPilot repo raids, commit only after a reviewed `PASS`, then start the next raid from a clean working tree. Do not carry uncommitted reviewed changes into the next slice.
 
 ## Quality gates
 
@@ -198,6 +211,8 @@ Every serious app task must pass:
 - no frontend/backend mixing
 - no giant one-shot generation
 - independent review
+- commit checkpoint after review PASS before starting the next repo-changing raid
+- For ImmoPilot security foundation work, apply the lessons in `references/immopilot-kanban-security-foundation-review.md`: require active memberships exactly, keep `safeError` non-leaking by not accepting arbitrary caller messages, verify Convex watcher duplicate-symbol alerts with a fresh one-shot compile, and route BLOCKED review fixes back through Kanban.
 
 For SaaS POS, also require:
 
@@ -219,6 +234,7 @@ For ImmoPilot real-estate ERP, also require:
 - hierarchy ownership checks across project → tranche → bloc → building → floor → apartment
 - membership and permission checks for every Convex query/mutation
 - organization/project-scoped indexes
+- hierarchy parent/status/list indexes lead with `organizationId` (for example `organizationId + projectId + status`, not bare `projectId + status`)
 - pagination for apartments, purchases, payments, documents, and audit logs
 - bounded finance reports by organization/project/date range
 - audit logs for financial, document, project, price/status, cost-allocation, and role changes
@@ -230,11 +246,18 @@ For ImmoPilot UI work, also require:
 - use external UI skill packs as ingredients only; never let them override ImmoPilot domain rules
 - prefer Vercel/Linear discipline, Stripe business polish, Notion document calm, and IBM/Wise financial clarity
 - use UI UX Pro Max as a search/checklist oracle, not final brand authority
+- use Hallmark (`nutlope/hallmark`) automatically as an anti-AI-slop UI audit/redesign discipline after important screen/component implementation: preserve DESIGN.md tokens, reject invented metrics, fake chrome, gradient text, emoji feature icons, generic card-grid filler, random token values, weak contrast, missing focus states, horizontal mobile scroll, and two-line clickable labels
+- for route/shell skeletons before real auth is wired, placeholder auth must fail closed outside development: never return fake platform admins, fake organizations, or tenant context in production builds; render an access-denied/auth-not-wired foundation state instead
 - use Taste Skill (`Leonxlnx/taste-skill`) as anti-slop/polish discipline with restrained ERP dials: design variance 4-5, motion 2-3, visual density 6-7 for dashboards/tables
 - use Impeccable (`pbakaus/impeccable`) as the UI quality workflow: shape → build → audit → polish → harden
 - use Vercel Labs Agent Skills for production frontend engineering gates: React/Next.js performance, composition patterns, web interface guidelines, and deployment optimization later if Vercel is used
 - use Anthropic frontend-design as a creative spark/variant generator, but restrain it for core ERP screens where clarity beats spectacle
-- reject generic dashboard filler, random gradients, decorative charts, excessive motion, brand cloning, and UI packs that override domain usability
+- for ImmoPilot product-direction prototypes, do not default to a huge scrollable enterprise sidebar; prefer compact top nav/pill navigation, secondary tabs, or a thin non-scroll rail so all primary modules are reachable without sidebar scrolling
+- when Ayman asks for a clickable visual MVP, consider producing or iterating toward two directions: a serious ERP baseline for module coverage and a modern compact SaaS direction for taste/product feel
+- for current ImmoPilot implementation UI, use V1's serious ERP module coverage/density as the functional baseline, but use V2's compact/top navigation idea instead of V1's oversized scrollable sidebar; Ayman may personally redesign final UI later, so prioritize stitching real flows/buttons/states over speculative aesthetic polish
+- modern/creative for Ayman means airy rounded SaaS polish, compact navigation, strong typography, thoughtful whitespace, and domain-useful cards — not decorative Dribbble UI or generic dashboard sludge
+- reject generic dashboard filler, random gradients, decorative charts, excessive motion, brand cloning, oversized scrollable sidebars, and UI packs that override domain usability
+- see `references/immopilot-ui-stitching-decision.md` for the V1/V2 prototype decision and how to implement UI while preserving redesign flexibility
 
 ## Output contract for planning
 
@@ -258,5 +281,12 @@ Next move
 - `references/immopilot-saas-doctrine.md` — current ImmoPilot doctrine: product naming, Sobhi-as-first-tenant correction, real-estate ERP hierarchy, `organizationId` tenant isolation, reliability rules, and POS-later boundary.
 - `references/immopilot-ui-reference-pack.md` — how to use external UI skill packs (`awesome-design-md`, UI UX Pro Max, awesome-design-skills, Impeccable, future Taste link) as curated ingredients for ImmoPilot UI without overriding domain doctrine.
 - `references/immopilot-dev-preview-and-convex-auth.md` — previewing the local ImmoPilot app over Tailscale, verifying the dev server route, and handling Convex device auth safely.
+- `references/immopilot-dev-shadows-sleep-wake.md` — stopping/resuming ImmoPilot local dev shadows safely; wake Convex + Next.js, verify local/Tailscale HTTP 200, keep WARP inactive unless explicitly needed.
 - `references/immopilot-monorepo-bootstrap.md` — known-good bootstrap pattern for the first ImmoPilot Turborepo/Next/Tailwind/Convex skeleton, including verification commands and common setup fixes.
 - `references/immopilot-convex-cloud-setup.md` — session-proven Convex cloud project setup flow for ImmoPilot, including auth choices, generated files, AI guidance hierarchy, verification commands, and Tailscale dev-server checks.
+- `references/erpnext-reference-workflow.md` — how to use the local ERPNext clone as an ERP domain reference without pivoting away from Convex/Next.
+- `references/immopilot-operator-security-payroll.md` — two-sided SaaS operator dashboard, security baseline, rate limiting, and employee/payroll doctrine notes.
+- `references/immopilot-route-surface-and-review-patterns.md` — session-proven route surface workflow: `/platform` + `/app` skeleton sequence, Next.js route segment pitfall, fail-closed placeholder auth, review-required handoff routing, commit checkpoints, and local Next dev cache resummon.
+- `references/immopilot-kanban-security-foundation-review.md` — session-proven Kanban/review lessons for ImmoPilot security foundation cards, including active-only memberships, non-leaking `safeError`, and Convex watcher duplicate-symbol verification.
+- `references/immopilot-project-hierarchy-schema-and-crud.md` — session-proven hierarchy schema and project CRUD workflow: schema-only vs CRUD card split, `organizationId`-leading parent/status indexes, project CRUD permission/audit requirements, and review pitfalls.
+- `references/immopilot-visual-prototype-feedback.md` — visual prototype feedback: V1 oversized scrollable sidebar problem, V2 compact/modern SaaS direction, and how to use airy rounded references without losing ERP seriousness.

@@ -1189,6 +1189,7 @@ class CredentialPool:
         window_key: str = "primary",
         prefer_reset_ending_soonest: bool = True,
         max_quota_cache_age_seconds: int = 0,
+        min_reset_lead_seconds: int = 0,
     ) -> Optional[PooledCredential]:
         """Select a Codex credential using cached quota metadata.
 
@@ -1218,6 +1219,7 @@ class CredentialPool:
                     window_key=window_key,
                     prefer_reset_ending_soonest=prefer_reset_ending_soonest,
                     max_quota_cache_age_seconds=max_quota_cache_age_seconds,
+                    min_reset_lead_seconds=min_reset_lead_seconds,
                 )
             except Exception:
                 entry = None
@@ -1369,7 +1371,52 @@ class CredentialPool:
             )
             self._mark_exhausted(entry, status_code, error_context)
             self._current_id = None
-            next_entry = self._select_unlocked()
+            if self.provider == "openai-codex":
+                try:
+                    from agent.codex_quota import codex_quota_rotation_config
+
+                    if not codex_quota_rotation_config().get("enabled"):
+                        logger.info(
+                            "credential pool: Codex auto-switching disabled; not rotating away from selected account"
+                        )
+                        return None
+                except Exception:
+                    logger.info(
+                        "credential pool: Codex auto-switching disabled by default; not rotating away from selected account"
+                    )
+                    return None
+            next_entry = None
+            quota_rotation_attempted = False
+            if self.provider == "openai-codex":
+                try:
+                    from agent.codex_quota import codex_quota_rotation_config, choose_codex_quota_candidate
+
+                    rotation_cfg = codex_quota_rotation_config()
+                    if rotation_cfg.get("enabled"):
+                        quota_rotation_attempted = True
+                        available = self._available_entries(clear_expired=True, refresh=True)
+                        next_entry, meta = choose_codex_quota_candidate(
+                            available,
+                            current_id="",
+                            threshold_percent=rotation_cfg.get("threshold_percent", 5),
+                            window_key=rotation_cfg.get("window_key", "primary"),
+                            prefer_reset_ending_soonest=rotation_cfg.get("prefer_reset_ending_soonest", True),
+                            max_quota_cache_age_seconds=rotation_cfg.get("max_quota_cache_age_seconds", 0),
+                            min_reset_lead_seconds=rotation_cfg.get("min_reset_lead_seconds", 0),
+                            fallback_to_first=False,
+                        )
+                        if next_entry is not None:
+                            self._current_id = next_entry.id
+                            logger.info(
+                                "credential pool: Codex quota-aware reactive rotation selected %s (%s)",
+                                next_entry.label or next_entry.id[:8],
+                                meta.get("reason"),
+                            )
+                except Exception:
+                    quota_rotation_attempted = False
+                    logger.debug("Codex quota-aware reactive rotation failed; using pool strategy", exc_info=True)
+            if next_entry is None and not quota_rotation_attempted:
+                next_entry = self._select_unlocked()
             if next_entry:
                 _next_label = next_entry.label or next_entry.id[:8]
                 logger.info("credential pool: rotated to %s", _next_label)

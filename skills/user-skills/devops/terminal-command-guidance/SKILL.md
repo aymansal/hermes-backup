@@ -27,6 +27,7 @@ Load this skill when the user:
 - Pastes a transcript showing prompts like `$`, `ubuntu@host:~$`, `>`, or errors like `command not found`.
 - Copies the language label or wrapper word (`bash`, `sh`, etc.) instead of just the command.
 - Needs to run Hermes CLI commands, inspect `~/.hermes`, logs, services, ports, or config files.
+- Asks to restart, resummon, refresh, or bring back a local preview/dev server bound to a port.
 
 ## Operator Tone
 
@@ -46,6 +47,18 @@ stat /path/to/file
 ```
 
 Do not suggest edits, deletes, service restarts, or config writes until the user has confirmed the target path/account/session.
+
+For dev-server resummons, inspect the exact port listener and process tree before terminating anything. Never kill random `node` processes; release only verified PIDs bound to the requested preview Gate, then verify local and remote/Tailscale HTTP status codes before reporting success.
+
+For non-Tailscale access to a local/static preview, use `references/temporary-public-preview-tunnels.md`: verify local health first, try public IP only if appropriate, ask approval before exposing a temporary public tunnel, prefer `cloudflared tunnel --url http://127.0.0.1:<PORT>`, parse `--logfile` if background stdout is empty, verify HTTP 200 on the generated URL, and remind Ayman that anyone with the link can view it while the tunnel runs.
+
+## Safe Dev Server Resummon
+
+When resummoning a preview/dev server, follow `references/safe-dev-server-resummon.md`: identify the exact port listener with `ss`, map the process tree with `ps`, terminate only verified dev-server PIDs, restart under Hermes/background tracking, and verify local plus remote/Tailscale routes before claiming the Gate is open.
+
+## Public Preview Tunnels
+
+When Ayman needs to view a local/static/dev preview from a PC without Tailscale, follow `references/public-preview-tunnels.md`: verify local health first, test direct public IP if appropriate, ask explicit approval before installing or opening a public tunnel, prefer a temporary `cloudflared tunnel --url http://127.0.0.1:<PORT>` Gate, parse the `trycloudflare.com` URL from a logfile if stdout is empty, verify HTTP 200 through the tunnel, and warn that anyone with the link can view it until closed.
 
 ## Copy-Paste Hygiene
 
@@ -176,3 +189,4 @@ python3 -c 'from pathlib import Path; p=Path("/absolute/path/to/file"); print("e
 ## References
 
 - `references/shell-prompt-confusion.md` — session-derived pattern for users accidentally typing `bash`/`sh` wrappers and interpreting blank command output.
+- `references/safe-dev-server-resummon.md` — safe pattern for restarting a port-bound preview/dev server without killing unrelated processes.

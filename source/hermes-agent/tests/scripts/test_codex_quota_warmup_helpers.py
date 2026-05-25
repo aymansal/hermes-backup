@@ -76,40 +76,47 @@ def test_warmup_all_marks_partial_failure_as_retryable(monkeypatch):
     assert "Gpt2/bad123: warmup failed: boom" in results.lines
 
 
-def test_slot_only_returns_warmup_or_none():
-    """Verify the 14:00 refresh slot was removed — _slot never returns 'refresh'."""
+def test_slot_returns_staggered_warmup_slots_or_none():
+    """Verify staggered 09/10/11/12 slots map to accounts 1/2/3/4."""
     mod = load_script()
     tz = mod.ZoneInfo("Africa/Casablanca")
     dt = mod.datetime
 
-    # Hour 9 within window → warmup
-    for minute in (0, 5, 19):
-        assert mod._slot(dt(2026, 5, 23, 9, minute, tzinfo=tz)) == "warmup", (
-            f"expected warmup at 09:{minute:02d}"
-        )
+    for hour, index in [(9, 0), (10, 1), (11, 2), (12, 3)]:
+        for minute in (0, 5, 19):
+            slot = mod._slot(dt(2026, 5, 23, hour, minute, tzinfo=tz))
+            assert slot is not None
+            assert slot.name == f"warmup_{hour:02d}"
+            assert slot.hour == hour
+            assert slot.account_index == index
 
-    # Hour 9 outside window → None
-    for minute in (20, 30, 45, 59):
-        assert mod._slot(dt(2026, 5, 23, 9, minute, tzinfo=tz)) is None, (
-            f"expected None at 09:{minute:02d}"
-        )
+        for minute in (20, 30, 45, 59):
+            assert mod._slot(dt(2026, 5, 23, hour, minute, tzinfo=tz)) is None
 
-    # Hour 14 — the removed refresh slot — must return None at any minute
-    for minute in (0, 5, 12, 19, 30, 59):
-        assert mod._slot(dt(2026, 5, 23, 14, minute, tzinfo=tz)) is None, (
-            f"expected None at 14:{minute:02d} (refresh slot removed)"
-        )
+    for hour in (0, 6, 8, 13, 14, 15, 20, 23):
+        assert mod._slot(dt(2026, 5, 23, hour, 0, tzinfo=tz)) is None
 
-    # All other hours → None
-    for hour in (0, 6, 10, 12, 15, 20, 23):
-        assert mod._slot(dt(2026, 5, 23, hour, 0, tzinfo=tz)) is None, (
-            f"expected None at {hour}:00"
-        )
+
+def test_entry_for_slot_selects_expected_account_and_errors_if_missing():
+    mod = load_script()
+    entries = [
+        {"id": "one123", "id_prefix": "one123", "label": "One"},
+        {"id": "two123", "id_prefix": "two123", "label": "Two"},
+    ]
+
+    assert mod._entry_for_slot(mod.WarmupSlot("warmup_09", 9, 0), entries)["label"] == "One"
+    assert mod._entry_for_slot(mod.WarmupSlot("warmup_10", 10, 1), entries)["label"] == "Two"
+
+    try:
+        mod._entry_for_slot(mod.WarmupSlot("warmup_11", 11, 2), entries)
+    except RuntimeError as exc:
+        assert "expects account #3" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError for missing account")
 
 
 def test_main_returns_0_outside_any_slot(monkeypatch):
-    """Verify main() exits silently (return 0) when _slot returns None,
-    e.g. at hour 14 when the refresh slot was removed."""
+    """Verify main() exits silently (return 0) when _slot returns None."""
     mod = load_script()
     monkeypatch.setattr(mod, "_slot", lambda now: None)
     monkeypatch.setattr(mod, "_load_state", lambda: {})

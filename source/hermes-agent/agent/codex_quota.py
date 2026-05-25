@@ -189,6 +189,10 @@ def codex_quota_rotation_config(config: Optional[Mapping[str, Any]] = None) -> d
         unused_backoff = int(raw.get("unused_fetch_backoff_seconds", 1800))
     except Exception:
         unused_backoff = 1800
+    try:
+        min_reset_lead = int(raw.get("min_reset_lead_seconds", 3600))
+    except Exception:
+        min_reset_lead = 3600
     return {
         "enabled": bool(raw.get("enabled", False)),
         "threshold_percent": max(0.0, min(100.0, threshold)),
@@ -197,6 +201,7 @@ def codex_quota_rotation_config(config: Optional[Mapping[str, Any]] = None) -> d
         "persist_runtime_switch": bool(raw.get("persist_runtime_switch", False)),
         "prefer_reset_ending_soonest": bool(raw.get("prefer_reset_ending_soonest", True)),
         "unused_fetch_backoff_seconds": max(0, unused_backoff),
+        "min_reset_lead_seconds": max(0, min_reset_lead),
     }
 
 
@@ -287,6 +292,7 @@ def rank_codex_accounts_by_quota(
     window_key: str = "primary",
     prefer_reset_ending_soonest: bool = True,
     max_quota_cache_age_seconds: int = 0,
+    min_reset_lead_seconds: int = 0,
 ) -> list[dict[str, Any]]:
     """Rank pool entries using sanitized cached Codex quota only.
 
@@ -310,6 +316,7 @@ def rank_codex_accounts_by_quota(
     current = str(current_id or "").strip()
     now = int(time.time())
     max_age = max(0, int(max_quota_cache_age_seconds))
+    min_reset_lead = max(0, int(min_reset_lead_seconds))
     for index, entry in enumerate(entries):
         quota = getattr(entry, "last_quota", None)
         quota_is_stale = False
@@ -327,9 +334,25 @@ def rank_codex_accounts_by_quota(
         )
         remaining = score.get("remaining_percent")
         reset_at = score.get("reset_at")
-        above = bool(score.get("above_threshold") and not quota_is_stale)
+        reset_lead_seconds = None
+        reset_lead_eligible = True
+        if min_reset_lead > 0:
+            reset_lead_eligible = False
+            if reset_at is not None:
+                reset_lead_seconds = float(reset_at) - float(now)
+                reset_lead_eligible = reset_lead_seconds >= min_reset_lead
+        elif reset_at is not None:
+            reset_lead_seconds = float(reset_at) - float(now)
+        above = bool(score.get("above_threshold") and not quota_is_stale and reset_lead_eligible)
         is_current = bool(current and getattr(entry, "id", "") == current)
-        reset_rank = float(reset_at) if reset_at is not None and prefer_reset_ending_soonest else float("inf")
+        if reset_at is not None and prefer_reset_ending_soonest:
+            reset_rank = float(reset_at)
+            missing_reset_rank = 0
+        else:
+            # Known reset windows are preferred over unknown reset windows when
+            # the operator wants to burn the account whose window ends soonest.
+            reset_rank = float("inf")
+            missing_reset_rank = 1
         remaining_rank = float(remaining) if remaining is not None else -1.0
 
         # --- Weekly (secondary) health gate ---
@@ -360,15 +383,18 @@ def rank_codex_accounts_by_quota(
             "above_threshold": above,
             "selected": is_current,
             "stale_quota": quota_is_stale,
+            "reset_lead_seconds": reset_lead_seconds,
+            "reset_lead_eligible": reset_lead_eligible,
             "weekly_healthy": weekly_healthy,
             "weekly_remaining_percent": weekly_remaining,
             "sort_key": (
                 0 if (above and weekly_healthy) else
                 1 if weekly_healthy else
                 2,
-                -remaining_rank,
                 reset_rank,
+                missing_reset_rank,
                 0 if is_current else 1,
+                -remaining_rank,
                 getattr(entry, "priority", index),
                 index,
             ),
@@ -384,6 +410,8 @@ def choose_codex_quota_candidate(
     window_key: str = "primary",
     prefer_reset_ending_soonest: bool = True,
     max_quota_cache_age_seconds: int = 0,
+    min_reset_lead_seconds: int = 0,
+    fallback_to_first: bool = True,
 ) -> tuple[Optional[Any], dict[str, Any]]:
     """Choose a safe Codex account for preemptive quota rotation.
 
@@ -411,6 +439,7 @@ def choose_codex_quota_candidate(
         window_key=window_key,
         prefer_reset_ending_soonest=prefer_reset_ending_soonest,
         max_quota_cache_age_seconds=max_quota_cache_age_seconds,
+        min_reset_lead_seconds=min_reset_lead_seconds,
     )
     current_row = next((row for row in ranked if row.get("selected")), None)
 
@@ -418,17 +447,22 @@ def choose_codex_quota_candidate(
     # healthy) are candidates for proactive rotation.
     usable_above = [r for r in ranked if r.get("weekly_healthy") and r.get("above_threshold")]
 
-    # 1. Current is healthy on both axes — keep it.
-    if current_row and current_row.get("weekly_healthy") and current_row.get("above_threshold"):
-        return current_row["entry"], {"reason": "selected_above_threshold", "candidates": ranked}
-
-    # 2. Current is not ideal — try to rotate to a healthier account.
+    # 1. Any account that passes both gates may be used.  Because
+    # ``rank_codex_accounts_by_quota`` already applies the configured ordering,
+    # the top usable account is the account whose relevant window resets soonest
+    # when ``prefer_reset_ending_soonest`` is enabled.  This deliberately allows
+    # rotating away from a healthy selected account to burn the window that will
+    # refresh first.
     if usable_above:
         top = usable_above[0]
-        reason = "rotated_to_above_threshold"
+        if current_row and top.get("id") == current_row.get("id"):
+            return top["entry"], {"reason": "selected_above_threshold", "candidates": ranked}
+        reason = "rotated_to_earliest_reset"
+        if not (current_row and current_row.get("weekly_healthy") and current_row.get("above_threshold")):
+            reason = "rotated_to_above_threshold"
         return top["entry"], {"reason": reason, "candidates": ranked}
 
-    # 3. No better candidate — keep selected as conservative fallback.
+    # 2. No better candidate — keep selected as conservative fallback.
     if current_row:
         if not current_row.get("weekly_healthy"):
             # Weekly depletion is the reason we can't rotate (5h might be fine).
@@ -437,8 +471,11 @@ def choose_codex_quota_candidate(
             reason = "kept_selected_no_above_threshold"
         return current_row["entry"], {"reason": reason, "candidates": ranked}
 
-    # 4. No current at all — fallback to first entry regardless.
-    return (ranked[0]["entry"] if ranked else None), {"reason": "fallback_no_current", "candidates": ranked}
+    # 4. No current at all — fallback to first entry unless the caller is a
+    # strict reactive path that must not rotate into an ineligible account.
+    if fallback_to_first:
+        return (ranked[0]["entry"] if ranked else None), {"reason": "fallback_no_current", "candidates": ranked}
+    return None, {"reason": "no_eligible_candidate", "candidates": ranked}
 
 
 def _bucket_from_values(

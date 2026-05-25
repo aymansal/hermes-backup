@@ -23,6 +23,7 @@ Mandatory linked references:
 - `references/telegram-topic-command-center.md` — load/read this when Ayman wants a Telegram supergroup with many topics as separate Hermes command lanes, topic-specific Skill Rune bindings, or topic-targeted cron/raid delivery.
 - `references/ams-warp-browser-crawler.md` — load/read this for AMS/Austrian job-board browser/crawler missions. It captures the WARP route test, AMS robots/API constraints, and the safe browser-use vs Scrapy split.
 - `references/cron-session-memory-curator-coverage.md` — load/read this when creating, reviewing, or debugging a daily session-memory curator Raid Timer. It captures the pitfall that `session_search()` default browse returns only 3 sessions, the need to enumerate `state.db` by timestamp, cluster related sessions, and verify delivery target/output after patching.
+- `references/cron-delivery-and-curator-no-agent-case.md` — load/read this when cron reports land in the wrong Telegram topic or a daily memory curator fails under agent-mode cron. It captures explicit `telegram:<chat_id>:<thread_id>` delivery routing and the no-agent script conversion pattern.
 
 The operating model:
 
@@ -116,6 +117,8 @@ Examples:
 When a Kanban worker designs or creates a Raid Timer, remember that the worker profile may store cron state under its own profile directory. Igris must verify the final timer from the runtime/default profile before reporting success. If the timer must be visible to the live gateway, prefer creating the final cron job from Igris/operator context with the native cronjob tool, then let a reviewer certify the default-profile job id, schedule, provider/model, enabled state, and delivery route.
 
 For session-memory curator Raid Timers, do not certify success from `last_status=ok` alone. A run can store useful facts while failing coverage. Verify the actual target-window session count from `~/.hermes/state.db` and compare it to the sessions the curator claims it inspected. `session_search()` with no arguments only browses the 3 most recent sessions; it is not a full "last 24 hours" scan. See `references/cron-session-memory-curator-coverage.md` before creating or judging this class of cron job.
+
+For writing facts to Holographic memory from cron contexts: do not depend on interactive agent tools like `memory`/`fact_store`; they may be unavailable inside cron sessions. Prefer a `no_agent=true` script for daily curator jobs, with short read-only `state.db` scans, strict secret/transient filters, dedupe, and short controlled writes to `memory_store.db` or the Holographic store API. See `references/cron-session-memory-curator-coverage.md` for the cron-safe pattern and verification checklist.
 
 ### 5. Telegram topic command-center missions
 

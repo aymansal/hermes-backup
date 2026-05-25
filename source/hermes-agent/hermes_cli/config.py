@@ -512,6 +512,7 @@ DEFAULT_CONFIG = {
         "max_quota_cache_age_seconds": 900,
         "persist_runtime_switch": False,
         "prefer_reset_ending_soonest": True,
+        "min_reset_lead_seconds": 3600,
     },
     "codex_warmup": {
         "enabled": False,

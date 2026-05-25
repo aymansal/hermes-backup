@@ -3,6 +3,45 @@ import pytest
 from hermes_cli import runtime_provider as rp
 
 
+def test_resolve_runtime_provider_honors_manual_codex_selection_without_persisting_auto_switch(monkeypatch):
+    calls = []
+
+    class _Entry:
+        id = "selected"
+        access_token = "selected-token"
+        source = "device_code"
+        base_url = "https://chatgpt.com/backend-api/codex"
+
+    class _Pool:
+        def has_credentials(self):
+            return True
+
+        def select_by_id(self, credential_id):
+            calls.append(("select_by_id", credential_id))
+            return _Entry()
+
+        def select_codex_by_quota(self, **kwargs):  # pragma: no cover - must not be called
+            calls.append(("select_codex_by_quota", kwargs))
+            raise AssertionError("manual Codex selection must not use quota auto-switching")
+
+    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "openai-codex")
+    monkeypatch.setattr(rp, "_get_model_config", lambda: {"provider": "openai-codex", "credential_id": "selected"})
+    monkeypatch.setattr(rp, "load_pool", lambda provider: _Pool())
+
+    import agent.codex_quota as codex_quota
+
+    monkeypatch.setattr(
+        codex_quota,
+        "persist_selected_codex_credential_id",
+        lambda credential_id, *, reason: calls.append(("persist", credential_id, reason)) or True,
+    )
+
+    resolved = rp.resolve_runtime_provider(requested="openai-codex")
+
+    assert resolved["api_key"] == "selected-token"
+    assert calls == [("select_by_id", "selected")]
+
+
 def test_resolve_runtime_provider_uses_credential_pool(monkeypatch):
     class _Entry:
         access_token = "pool-token"
@@ -2735,7 +2774,7 @@ def test_codex_pinned_selection_uses_select_by_id_when_quota_rotation_disabled(m
     assert calls == [("select_by_id", "selected")]
 
 
-def test_codex_pinned_selection_uses_quota_selector_when_enabled(monkeypatch):
+def test_codex_pinned_selection_uses_manual_credential_even_when_quota_rotation_config_exists(monkeypatch):
     calls = []
 
     class _Entry:
@@ -2772,15 +2811,4 @@ def test_codex_pinned_selection_uses_quota_selector_when_enabled(monkeypatch):
     resolved = rp.resolve_runtime_provider(requested="openai-codex")
 
     assert resolved["api_key"] == "candidate-token"
-    assert calls == [
-        (
-            "select_codex_by_quota",
-            {
-                "selected_credential_id": "selected",
-                "threshold_percent": 5,
-                "window_key": "primary",
-                "prefer_reset_ending_soonest": True,
-                "max_quota_cache_age_seconds": 0,
-            },
-        )
-    ]
+    assert calls == [("select_by_id", "selected")]

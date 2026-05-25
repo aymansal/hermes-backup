@@ -1035,10 +1035,14 @@ export default function ModelsPage() {
   useEffect(() => {
     let cancelled = false;
     const refreshQuota = () => {
-      api
-        .getModelQuota()
-        .then((quotaData) => {
-          if (!cancelled) setQuota(quotaData);
+      Promise.all([
+        api.getModelQuota().catch(() => null),
+        api.getCodexAccounts().catch(() => null),
+      ])
+        .then(([quotaData, accountData]) => {
+          if (cancelled) return;
+          if (quotaData) setQuota(quotaData);
+          if (accountData) setCodexAccounts(accountData);
         })
         .catch(() => {
           // Keep the last good quota visible; transient quota fetch failures

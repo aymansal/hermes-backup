@@ -79,4 +79,12 @@ Do not expose or store tokens. Device codes are short-lived auth prompts, not du
 
 ## Kanban nuance for bootstrap work
 
-For this app class, full Kanban can be consciously skipped for low-risk local bootstrap actions such as creating a new local repo skeleton, copying doctrine, starting a dev preview, or read-only checks. The important requirement is that the commander states the judgment explicitly. Forgetting the Kanban rule is a process failure; intentionally skipping it with a reason is acceptable.
+For this app class, full Kanban can be consciously skipped for low-risk local bootstrap actions such as creating a new local repo skeleton, copying doctrine, starting a dev preview, resuming previously stopped dev processes, or read-only checks. The important requirement is that the commander states the judgment explicitly. Forgetting the Kanban rule is a process failure; intentionally skipping it with a reason is acceptable.
+
+## Related reference
+
+For the exact stop/resume pattern used when Ayman says to put ImmoPilot to sleep or wake what was stopped yesterday, see:
+
+```text
+references/immopilot-dev-shadows-sleep-wake.md
+```

@@ -48,7 +48,7 @@ def test_quota_score_uses_primary_remaining_percent():
     assert codex_quota_bucket_score(_quota(0), threshold_percent=5)["quota_status"] == "exhausted"
 
 
-def test_rank_prefers_more_remaining_then_earliest_reset():
+def test_rank_prefers_earliest_reset_then_more_remaining():
     entries = [
         _entry("soon", 50, reset_at=1000, priority=2),
         _entry("more", 80, reset_at=9000, priority=1),
@@ -57,7 +57,7 @@ def test_rank_prefers_more_remaining_then_earliest_reset():
 
     ranked = rank_codex_accounts_by_quota(entries, threshold_percent=5)
 
-    assert [row["id"] for row in ranked] == ["more", "soon", "low"]
+    assert [row["id"] for row in ranked] == ["soon", "more", "low"]
 
 
 def test_rank_tie_breaks_by_earliest_reset_at():
@@ -71,7 +71,81 @@ def test_rank_tie_breaks_by_earliest_reset_at():
     assert [row["id"] for row in ranked] == ["sooner", "later"]
 
 
-def test_choose_keeps_selected_when_above_threshold():
+def test_choose_rotates_from_healthy_selected_to_earlier_reset_candidate():
+    selected = _entry("selected", 80, reset_at=2000)
+    sooner = _entry("sooner", 10, reset_at=1000)
+
+    chosen, meta = choose_codex_quota_candidate([selected, sooner], current_id="selected", threshold_percent=5)
+
+    assert chosen.id == "sooner"
+    assert meta["reason"] == "rotated_to_earliest_reset"
+
+
+def test_min_reset_lead_excludes_too_soon_reset_candidate():
+    now = int(time.time())
+    too_soon = _entry("too-soon", 90, reset_at=now + 15 * 60, priority=0, captured_at_unix=now)
+    usable = _entry("usable", 40, reset_at=now + 75 * 60, priority=1, captured_at_unix=now)
+
+    chosen, meta = choose_codex_quota_candidate(
+        [too_soon, usable],
+        current_id="",
+        threshold_percent=5,
+        max_quota_cache_age_seconds=900,
+        min_reset_lead_seconds=3600,
+        fallback_to_first=False,
+    )
+
+    assert chosen.id == "usable"
+    too_soon_row = next(row for row in meta["candidates"] if row["id"] == "too-soon")
+    assert too_soon_row["reset_lead_eligible"] is False
+    assert too_soon_row["above_threshold"] is False
+
+
+def test_strict_min_reset_lead_returns_none_when_only_too_soon_candidates():
+    now = int(time.time())
+    too_soon = _entry("too-soon", 90, reset_at=now + 15 * 60, captured_at_unix=now)
+
+    chosen, meta = choose_codex_quota_candidate(
+        [too_soon],
+        current_id="",
+        threshold_percent=5,
+        max_quota_cache_age_seconds=900,
+        min_reset_lead_seconds=3600,
+        fallback_to_first=False,
+    )
+
+    assert chosen is None
+    assert meta["reason"] == "no_eligible_candidate"
+
+
+def test_reactive_codex_rotation_uses_quota_min_reset_lead(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    now = int(time.time())
+    current = _entry("current", 1, reset_at=now + 5 * 60, priority=0, captured_at_unix=now)
+    too_soon = _entry("too-soon", 90, reset_at=now + 15 * 60, priority=1, captured_at_unix=now)
+    usable = _entry("usable", 40, reset_at=now + 75 * 60, priority=2, captured_at_unix=now)
+    pool = CredentialPool("openai-codex", [current, too_soon, usable])
+    pool.select_by_id("current")
+
+    monkeypatch.setattr(
+        "agent.codex_quota.codex_quota_rotation_config",
+        lambda: {
+            "enabled": True,
+            "threshold_percent": 5,
+            "window_key": "primary",
+            "prefer_reset_ending_soonest": True,
+            "max_quota_cache_age_seconds": 900,
+            "min_reset_lead_seconds": 3600,
+        },
+    )
+
+    chosen = pool.mark_exhausted_and_rotate(status_code=429, error_context={"reason": "usage_limit_reached"})
+
+    assert chosen.id == "usable"
+    assert pool.current_id == "usable"
+
+
+def test_choose_keeps_selected_when_above_threshold_and_earliest_reset():
     selected = _entry("selected", 10, reset_at=1000)
     better = _entry("better", 80, reset_at=2000)
 

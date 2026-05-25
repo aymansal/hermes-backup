@@ -559,6 +559,16 @@ def recover_with_credential_pool(
     if pool is None:
         return False, has_retried_429
 
+    def _codex_auto_switching_enabled() -> bool:
+        if (agent.provider or "") != "openai-codex":
+            return True
+        try:
+            from agent.codex_quota import codex_quota_rotation_config
+
+            return bool(codex_quota_rotation_config().get("enabled"))
+        except Exception:
+            return False
+
     def _persist_runtime_switch_if_enabled(next_entry) -> None:
         if (agent.provider or "") != "openai-codex" or next_entry is None:
             return
@@ -584,6 +594,12 @@ def recover_with_credential_pool(
             effective_reason = FailoverReason.auth
 
     if effective_reason == FailoverReason.billing:
+        if not _codex_auto_switching_enabled():
+            _ra().logger.info(
+                "Credential %s (billing) — Codex auto-switching disabled; keeping selected account",
+                status_code if status_code is not None else 402,
+            )
+            return False, has_retried_429
         rotate_status = status_code if status_code is not None else 402
         next_entry = pool.mark_exhausted_and_rotate(status_code=rotate_status, error_context=error_context)
         if next_entry is not None:
@@ -607,6 +623,12 @@ def recover_with_credential_pool(
                 or "usage limit has been reached" in context_message
             )
         if not has_retried_429 and not usage_limit_reached:
+            return False, True
+        if not _codex_auto_switching_enabled():
+            _ra().logger.info(
+                "Credential %s (rate limit) — Codex auto-switching disabled; keeping selected account",
+                status_code if status_code is not None else 429,
+            )
             return False, True
         rotate_status = status_code if status_code is not None else 429
         next_entry = pool.mark_exhausted_and_rotate(status_code=rotate_status, error_context=error_context)
@@ -651,8 +673,15 @@ def recover_with_credential_pool(
             _ra().logger.info(f"Credential auth failure — refreshed pool entry {getattr(refreshed, 'id', '?')}")
             agent._swap_credential(refreshed)
             return True, has_retried_429
-        # Refresh failed — rotate to next credential instead of giving up.
-        # The failed entry is already marked exhausted by try_refresh_current().
+        # Refresh failed.  When Codex auto-switching is disabled, surface the
+        # selected account failure instead of silently moving to another
+        # dashboard account.
+        if not _codex_auto_switching_enabled():
+            _ra().logger.info(
+                "Credential %s (auth refresh failed) — Codex auto-switching disabled; keeping selected account",
+                status_code if status_code is not None else 401,
+            )
+            return False, has_retried_429
         rotate_status = status_code if status_code is not None else 401
         next_entry = pool.mark_exhausted_and_rotate(status_code=rotate_status, error_context=error_context)
         if next_entry is not None:

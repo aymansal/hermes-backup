@@ -110,6 +110,40 @@ Run:
 python -m pytest tests/hermes_cli/test_dashboard_codex_labels.py -q -o 'addopts='
 ```
 
+## Manual account selection vs auto-switching
+
+Ayman's current policy: **manual dashboard selection is authoritative**. Do not implement, re-enable, or assume proactive Codex account auto-switching unless Ayman explicitly asks for it again.
+
+Expected behavior:
+
+- Selecting a ChatGPT/Codex account in the Shadow Realm sets `model.credential_id` and Hermes should use that exact account.
+- Quota/reset metadata may be displayed for visibility, but must not silently change the selected account.
+- `codex_quota_rotation.enabled` and `codex_quota_rotation.persist_runtime_switch` should remain `false` for manual mode.
+- Proactive runtime provider resolution should call `pool.select_by_id(selected_credential_id)`, not `pool.select_codex_by_quota(...)`.
+- Reactive Codex `429` / `402` / auth-refresh-failed handling should not silently persist or swap to another dashboard account while auto-switching is disabled; surface the selected account failure instead.
+- Dashboard API fallbacks should not auto-pick an `auto_candidate` when no account is selected; deleting the selected account should clear selection rather than choosing another account behind Ayman's back.
+
+Safe verification after touching this logic:
+
+```bash
+cd ~/.hermes/hermes-agent
+python -m pytest \
+  tests/hermes_cli/test_runtime_provider_resolution.py \
+  tests/hermes_cli/test_codex_account_selection_dashboard.py \
+  tests/agent/test_codex_quota_rotation.py \
+  -q -o 'addopts='
+python -m py_compile \
+  agent/codex_quota.py \
+  agent/credential_pool.py \
+  agent/agent_runtime_helpers.py \
+  hermes_cli/runtime_provider.py \
+  hermes_cli/web_server.py \
+  hermes_cli/config.py \
+  run_agent.py
+```
+
+See `references/codex-manual-selection-vs-auto-switching-2026-05.md` for the session-specific root cause and patch map.
+
 ## Quota warmup / refresh scripts
 
 For scheduled warmups, selected-account-only commands are insufficient:
@@ -120,13 +154,21 @@ hermes chat -q "Warmup ping. Reply exactly: OK" --provider openai-codex --model 
 
 That only uses the globally selected `model.credential_id`.
 
-Preferred script behavior:
+Preferred staggered script behavior for Ayman's current quota formation:
 
 - Enumerate every usable `credential_pool.openai-codex` entry from `auth.json` but return only safe metadata: `id`, `id_prefix`, `label`.
-- For 09:00 Morocco warmup, make a tiny generation call for each credential, then fetch live quota for each credential.
-- For 14:00 Morocco refresh, fetch live `/usage` for each credential without generation.
-- Print safe lines only: `label/id_prefix`, remaining percent, reset time, `live_failed`.
-- Treat partial failure as retryable: print failures, return non-zero, and do not mark the state date complete.
+- Do **not** warm all accounts at the same hour; that overlaps all 5h quota windows and wastes quota.
+- Wake one account per hour in Morocco time:
+  - 09:00 → account #1 → expected reset around 14:00
+  - 10:00 → account #2 → expected reset around 15:00
+  - 11:00 → account #3 → expected reset around 16:00
+  - 12:00 → account #4 → expected reset around 17:00
+- For each slot, make one tiny generation call only for the assigned credential, then fetch live `/usage` for that same credential.
+- Print safe lines only: slot, `label/id_prefix`, remaining percent, reset time, `live_failed`.
+- Treat partial failure as retryable: print failures, return non-zero, and do not mark that slot date complete.
+- Use separate state keys like `warmup_09_date`, `warmup_10_date`, etc.; old aggregate keys such as `warmup_date` must not block staggered slots.
+- Harden against cron hard-kills: child process timeouts must leave margin under Hermes cron's ~3-minute run limit. Current pattern: warmup timeout about 105s, quota refresh timeout about 35s, max expected child time about 140s.
+- If warmup fails, skip quota refresh for that account and print that it was skipped; this preserves time for the next cron tick retry inside the same 20-minute window.
 
 If `hermes chat` lacks `--credential-id`, a practical fallback is a short-lived Python subprocess that temporarily sets `model.credential_id`, creates `AIAgent(provider='openai-codex', model='gpt-5.5', enabled_toolsets=['safe'], quiet_mode=True, skip_context_files=True, skip_memory=True)`, calls one warmup ping, and restores the original config in `finally`.
 

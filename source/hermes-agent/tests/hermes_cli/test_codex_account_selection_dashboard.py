@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from types import SimpleNamespace
 
 
@@ -182,3 +183,66 @@ def test_capture_rate_limits_saves_codex_quota_for_current_pool_id(monkeypatch):
 
     assert captured["headers"] == response.headers
     assert captured["credential_id"] == "cred-live"
+
+
+def test_codex_account_rows_mark_global_auto_candidate_with_min_reset_lead(tmp_path, monkeypatch):
+    hermes_home = tmp_path / "hermes"
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    now = int(time.time())
+    _write_auth_store(
+        tmp_path,
+        {
+            "version": 1,
+            "credential_pool": {
+                "openai-codex": [
+                    {
+                        "id": "too-soon",
+                        "label": "Too Soon",
+                        "auth_type": "oauth",
+                        "priority": 0,
+                        "source": "device_code",
+                        "access_token": "secret-too-soon",
+                        "last_quota": {
+                            "provider": "openai-codex",
+                            "captured_at_unix": now,
+                            "buckets": [{"key": "primary", "label": "5h", "remaining_percent": 90, "used_percent": 10, "reset_at": now + 15 * 60}],
+                        },
+                    },
+                    {
+                        "id": "usable",
+                        "label": "Usable",
+                        "auth_type": "oauth",
+                        "priority": 1,
+                        "source": "device_code",
+                        "access_token": "secret-usable",
+                        "last_quota": {
+                            "provider": "openai-codex",
+                            "captured_at_unix": now,
+                            "buckets": [{"key": "primary", "label": "5h", "remaining_percent": 40, "used_percent": 60, "reset_at": now + 75 * 60}],
+                        },
+                    },
+                ]
+            },
+        },
+    )
+    (hermes_home / "config.yaml").write_text(
+        "codex_quota_rotation:\n"
+        "  enabled: true\n"
+        "  threshold_percent: 5\n"
+        "  window_key: primary\n"
+        "  max_quota_cache_age_seconds: 900\n"
+        "  prefer_reset_ending_soonest: true\n"
+        "  min_reset_lead_seconds: 3600\n"
+    )
+
+    from hermes_cli.web_server import _codex_account_rows
+
+    rows = _codex_account_rows("")
+    by_id = {row["id"]: row for row in rows}
+
+    assert by_id["too-soon"]["rotation_eligible"] is False
+    assert by_id["too-soon"]["reset_lead_eligible"] is False
+    assert by_id["usable"]["rotation_eligible"] is True
+    assert by_id["usable"]["auto_candidate"] is True
+    assert "secret-too-soon" not in json.dumps(rows)
+    assert "secret-usable" not in json.dumps(rows)

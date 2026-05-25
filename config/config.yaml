@@ -7,12 +7,13 @@ providers: {}
 fallback_providers: []
 credential_pool_strategies: {}
 codex_quota_rotation:
-  enabled: true
+  enabled: false
   threshold_percent: 5
   window_key: primary
   max_quota_cache_age_seconds: 900
-  persist_runtime_switch: true
+  persist_runtime_switch: false
   prefer_reset_ending_soonest: true
+  min_reset_lead_seconds: 3600
 codex_warmup:
   enabled: false
   timezone: Africa/Casablanca

@@ -9,7 +9,7 @@ metadata:
     related_skills: [kanban-worker]
 ---
 
-> Ayman-specific doctrine: before orchestrating his raids, load `references/ayman-kanban-review-doctrine.md` for routing, review-gate scope, same-worker iteration, POS/business review policy, and phase-change reporting expectations.
+> Ayman-specific doctrine: before orchestrating his raids, load `references/ayman-kanban-review-doctrine.md` for routing, review-gate scope, same-worker iteration, POS/business review policy, and phase-change reporting expectations. For frontend/UI preview links, also use `references/ayman-preview-gate-and-tunnel.md` to verify route/CSS health and open temporary outside-Tailscale Cloudflare tunnels safely. For long-running or suspicious cards, use `references/stuck-worker-diagnostics.md` to distinguish an active worker from a merely alive/stalled process before reporting status or reclaiming.
 
 # Kanban Orchestrator — Decomposition Playbook
 
@@ -45,7 +45,7 @@ Create Kanban tasks when any of these are true:
 
 If *none* of those apply — it's a small one-shot reasoning task — use `delegate_task` instead or answer the user directly.
 
-See `references/ayman-hermes-ops-kanban-correction.md` for a concrete Hermes Agent ops raid pattern that was added after Ayman corrected an inline execution mistake.
+See `references/ayman-hermes-ops-kanban-correction.md` for a concrete Hermes Agent ops raid pattern that was added after Ayman corrected an inline execution mistake. See `references/kanban-cli-quoting-and-preview-cache.md` for two recurring operator pitfalls: safe Kanban card creation with Markdown/backticks, and Next.js dev preview cache recovery after build/codegen runs. For ImmoPilot ERP/UI card sequencing, preview verification, Convex generated API cleanliness, and Ayman's "hand polish later" boundary, also load `references/ayman-immopilot-erp-ui-kanban-lessons.md`.
 
 ## The anti-temptation rules
 
@@ -158,7 +158,11 @@ Tell them what you created in plain prose, naming the actual profiles you used:
 >
 > The dispatcher will pick up T1 and T2 now. T3 starts when both finish. You'll get a gateway ping when T4 completes. Use the dashboard or `hermes kanban tail <id>` to follow along.
 
-Report phase changes promptly and do not make Ayman ask for status after a gate changes. For high-stakes raids, announce worker completion, review start, review PASS/BLOCKED, activation/config writes, cron creation, and restart/deploy approval gates as soon as they happen. If Ayman says he is waiting, actively poll the board until the worker/reviewer completes or blocks, then report immediately.
+Report phase changes promptly and do not make Ayman ask for status after a gate changes. For Ayman, this is mandatory commander behavior, not optional polish: announce when a worker card starts, when a worker completes or blocks, when the reviewer starts, and when review returns PASS/BLOCKED. Do not wait for Ayman to ask "what happened?" after a card finishes; a quiet phase transition is a workflow failure. For high-stakes raids, also announce activation/config writes, cron creation, restart/deploy approval gates, crash/reclaim/retry events, and decision gates as soon as they happen. If Ayman says he is waiting, actively poll the board until the worker/reviewer completes or blocks, then report immediately.
+
+For UI/frontend cards, a reviewer PASS is not the whole preview gate. Before telling Ayman to inspect a local web app, verify the served route and critical CSS/assets from the operator context. If the page is raw/unstyled, inspect asset refs first; for Next dev, stale `.next` output can produce HTML pointing at missing CSS. Ask before restarting/clearing cache. If Ayman asks to view outside Tailscale, prefer a temporary Cloudflare tunnel and verify the public route plus CSS before sharing the URL. See `references/ayman-preview-gate-and-tunnel.md`.
+
+When Ayman ends a raid with “let’s go sleep” / “let go sleep”, perform the sleep-mode teardown: stop nonessential dev/preview/tunnel/idle-worker processes, verify no active required cards or dirty repo are being abandoned, and leave Hermes dashboard + Telegram gateway alive. See `references/ayman-raid-sleep-mode.md`.
 
 ## Common patterns
 
@@ -184,6 +188,8 @@ Report phase changes promptly and do not make Ayman ask for status after a gate 
 
 **Reassignment vs. new task.** If a reviewer blocks with "needs changes," create a NEW task linked from the reviewer's task — don't re-run the same task with a stern look. The new task is assigned to the original implementer profile.
 
+**Review-required worker handoffs.** Some implementation workers intentionally mark themselves `blocked` with a `review-required` summary after producing files, because they are not allowed to declare PASS. The General may mark that worker task `done` only to unlock its dependent reviewer, but the completion summary must explicitly say "review-required handoff, not PASS" and no commit/deploy/user success claim may happen until the reviewer returns PASS and the General verifies gates.
+
 **Reviewer protocol violations can hide real verdicts.** If a review appears stuck but its log contains a clear PASS/BLOCKED verdict, recover the verdict instead of waiting blindly. Inspect `hermes kanban show`, `hermes kanban runs`, and `hermes kanban log <task_id> --tail 8000`; if the worker exited cleanly without calling `kanban_complete`/`kanban_block`, reclaim it, record the verdict manually, and route BLOCKED findings back to the same worker. See `references/reviewer-protocol-violation-recovery.md`.
 
 **Blocked review completion can accidentally promote unsafe downstream children.** When you mark a failed/blocked review as `done` only to unlock a fix iteration, inspect the full board immediately after dispatch. Any operational child that should still wait (cron/Raid Timer, deploy, restart, production activation, warmup, config enablement) may be promoted because its parent is now `done`. Reclaim and re-block those children immediately with an explicit reason. Better: when possible, create the fix card as the only child of the failed review and keep deploy/activation cards blocked until a later PASS review.
@@ -194,9 +200,17 @@ Report phase changes promptly and do not make Ayman ask for status after a gate 
 
 **Tenant inheritance.** If `HERMES_TENANT` is set in your env, pass `tenant=os.environ.get("HERMES_TENANT")` on every `kanban_create` call so child tasks stay in the same namespace.
 
+**CLI JSON shape, global flags, and card-body quoting.** `hermes kanban create --json` emits the task id under `id` in current CLI output, not `task_id`; parse `id` or verify the exact output before wiring dependencies. The `--board <slug>` flag belongs immediately after `hermes kanban` (for example `hermes kanban --board immopilot list`), not after subcommands like `list --board immopilot`. `hermes kanban create` takes the title as a positional argument, not `--title`. Avoid shell-interpolating Markdown card bodies containing backticks via `$(cat file)`; the shell can strip inline-code names or inject command output into review cards. Prefer subprocess argv arrays or verify `hermes kanban show <task_id>` immediately and add a corrective General comment if the body was polluted. See `references/kanban-cli-quoting-and-preview-cache.md`.
+
+**Forced skills and profile scope.** Worker profiles can have profile-scoped skill libraries. A `--skill <name>` that exists for the operator/default profile may be unknown inside a worker profile and crash the card before useful work starts. For critical doctrine, either verify the skill is resolvable by that worker profile first, or embed the required doctrine/paths directly in the card body and omit `--skill`.
+
+**Profile-scoped skill resolution.** Worker profiles may not resolve the same user-created skills as the default profile. Before passing `--skill <name>` to a Kanban worker, verify that the target profile can load that skill. If uncertain, embed the essential doctrine directly in the task body and use absolute paths to reference files. Do not let an unknown skill crash the first worker attempt.
+
 **Profile-scoped side effects.** Worker profiles may run with their own `HERMES_HOME` / profile directories. If a card creates durable system state (cron jobs, profiles, config, files, subscriptions, credentials, service units), do not trust the worker's self-report alone. Verify the result from the controlling/default profile or the real production path before telling the user it is active. Example: a worker-created cron job can land under `/home/ubuntu/.hermes/profiles/<worker>/cron/jobs.json`, while the gateway scheduler reads `/home/ubuntu/.hermes/cron/jobs.json`; such a job appears successful to the worker but never fires. For gateway-visible raid timers, prefer creating the final cron job from the parent/operator context with the native cronjob tool, then have a reviewer inspect the default-profile `hermes cron list` and jobs file. See `references/profile-scoped-cron-and-side-effects.md` for the full verification pattern.
 
 ## Recovering stuck workers
+
+Before using destructive recovery actions, distinguish **alive** from **working**. A worker whose PID still exists may be stuck if it has no heartbeat, only `claim_extended` events with `reason: pid_alive`, stale log mtime, low CPU time, and log lines frozen around tool preparation such as `preparing kanban_complete`. Do not reassure the user that it is merely "running" in that case; report that it is alive but not progressing, preserve the files, and ask before interrupting/reclaiming. Use `references/stuck-worker-diagnostics.md` for the read-only diagnostic sequence and safe recovery pattern.
 
 When a worker profile keeps crashing, hallucinating, or getting blocked by its own mistakes (usually: wrong model, missing skill, broken credential), the kanban dashboard flags the task with a ⚠ badge and opens a **Recovery** section in the drawer. Three primary actions:
 
