@@ -147,11 +147,15 @@ def rebuild() -> int:
         for p in list(sysd.glob("hermes*.service")) + list(sysd.glob("hermes*.timer")):
             (REPO / "systemd" / p.name).write_text(sanitize_text(p.read_text(errors="replace")), encoding="utf-8")
 
-    # Preserve restore helper if present in current repo history; otherwise write minimal pointer.
+    # Preserve the real restore helper from this backup repo if present; otherwise write a safe pointer.
+    # Note: rebuild() clears the repo working tree before recreating it, so capture from git HEAD.
     restore = REPO / "scripts" / "restore.sh"
-    if not restore.exists():
+    restore_from_head = run("git show HEAD:scripts/restore.sh 2>/dev/null", cwd=REPO)
+    if restore_from_head.strip():
+        restore.write_text(restore_from_head, encoding="utf-8")
+    else:
         restore.write_text("#!/usr/bin/env bash\nset -euo pipefail\necho 'See README.md for restore instructions.'\n", encoding="utf-8")
-        restore.chmod(0o755)
+    restore.chmod(0o755)
     shutil.copy2(Path(__file__), REPO / "scripts" / "backup_now.py")
 
     readme = f"""# Hermes Backup — Shadow System Recovery Vault\n\nPrivate backup for Ayman's Hermes Agent setup.\n\nLast generated: `{now}`\n\n## Included\n- Full Hermes source snapshot with local patches\n- Sanitized config, persona/profile, Skill Runes\n- Holographic memory DB, kanban DB, cron definitions\n- Sanitized systemd user units\n- Access Key template only, no secret values\n\n## Excluded\n`.env` values, `auth.json`, OAuth tokens, GitHub tokens, Telegram bot tokens, SSH keys, cookies, raw logs, session transcript DB, caches, and media caches.\n\n## Quick restore\n```bash\ngit clone {REMOTE}\ncd hermes-backup\nbash scripts/restore.sh\n# fill ~/.hermes/.env from secrets/env.template\ncd ~/.hermes/hermes-agent\nhermes doctor\n```\n"""
