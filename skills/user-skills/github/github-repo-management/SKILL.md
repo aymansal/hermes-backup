@@ -253,6 +253,28 @@ gh repo edit --add-topic "machine-learning,python"
 gh repo edit --enable-auto-merge
 ```
 
+### Temporary Public Restore Repos
+
+When Ayman insists on making a recovery repo public temporarily, do not expose the real private backup if it contains memory/state/config context. Safer pattern:
+1. Create a separate temporary public-safe repo.
+2. Strip state DBs, memory DBs, kanban DBs, cron runtime state, `.env`, `auth.json`, logs, SSH keys, tokens, and secrets.
+3. Run a literal current-`.env` leak check before publishing.
+4. Tell Ayman exactly what was stripped and that the public kit is body-only, not full brain/full powers.
+5. Close the Gate afterward: make private or delete.
+
+Deletion via GitHub CLI needs the `delete_repo` scope. If `gh repo delete owner/repo --yes` fails with a 403, refresh auth locally:
+
+```bash
+gh auth refresh -h github.com -s delete_repo
+gh repo delete owner/repo --yes
+```
+
+If the user does not want to grant delete scope, make the repo private instead:
+
+```bash
+gh repo edit owner/repo --visibility private --accept-visibility-change-consequences
+```
+
 **With curl:**
 
 ```bash

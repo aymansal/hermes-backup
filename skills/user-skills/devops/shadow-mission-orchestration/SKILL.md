@@ -18,6 +18,8 @@ Use this Skill Rune when Ayman gives a mission that benefits from multiple worke
 
 Mandatory linked references:
 
+- `references/kanban-review-required-handoff.md` — load/read this when a Kanban worker blocks as `review-required`, freezes at completion, or leaves useful uncommitted work that must be preserved and sent to GPT-5.5 review instead of treated as PASS.
+- `references/kanban-fast-status-heartbeats.md` — load/read this when Ayman asks `Update?`, `Status?`, or similar during a Kanban raid. It encodes the fast heartbeat rule: short status probe only, no long logs/gates/diffs unless he says `Go` or asks for detail.
 - `references/shadow-agent-model-codex.md` — load/read this before creating Kanban worker profiles or assigning long-running cards. It contains Ayman's universal 90-second Kanban-first rule, OpenCode Go live model roster, task-to-model routing table, and review/iteration doctrine.
 - `references/codex-quota-rotation-ops.md` — load/read this for Hermes Codex/ChatGPT multi-account quota rotation, dashboard quota display, weekly-vs-5h quota gates, Morocco warmup timers, and restart/activation safety.
 - `references/telegram-topic-command-center.md` — load/read this when Ayman wants a Telegram supergroup with many topics as separate Hermes command lanes, topic-specific Skill Rune bindings, or topic-targeted cron/raid delivery.
@@ -162,6 +164,23 @@ Before dispatching Shadows, Igris should define:
 When Ayman asks how a >90-second task should start, answer narrowly and operationally: create Kanban cards first, report card IDs/status quickly, dispatch workers, keep the main chat available, and require approval before side effects. Do not bury this answer under unrelated feature rules or architecture detail.
 
 When Ayman says to establish/build/implement a long Hermes feature, immediately open the raid instead of doing long inline recon. Create a dedicated board or cards, make the first card read-only when appropriate, and block implementation/deployment/cron cards behind explicit Ayman approval. Report the board slug and task IDs in the same turn.
+
+### Fast status/update requests
+
+When Ayman asks only `Update?`, `Status?`, or similar during a Kanban raid, do a short status probe and answer fast. Do not pull long logs, inspect diffs, run gates, or disappear into multi-minute investigation unless he explicitly asks for details or says `Go` after a proposed next move.
+
+Operational limit for quick checks: use at most a lightweight task `show` plus a compact active-board list. Avoid `log --tail`, `runs`, full diffs, tests, builds, codegen, or git inspection unless the requested status cannot be answered from the task summary. Ayman explicitly corrected this after a status request turned into a long 12-minute disappearance; status questions are heartbeat pings, not investigation orders.
+
+Default response shape for these quick checks:
+
+```text
+Status: <running|blocked|done>
+Active card: <id + title>
+Reason/verdict: <one line only, if visible from task summary>
+Next move: <one safe action>
+```
+
+If the visible state is `blocked` and likely `review-required`, say so and offer/perform the next handoff only when Ayman says `Go` or has already authorized that exact next move. The main chat must stay responsive; status questions are not permission to enter a long dungeon crawl.
 
 Template:
 

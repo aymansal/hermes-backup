@@ -170,7 +170,32 @@ Preferred staggered script behavior for Ayman's current quota formation:
 - Harden against cron hard-kills: child process timeouts must leave margin under Hermes cron's ~3-minute run limit. Current pattern: warmup timeout about 105s, quota refresh timeout about 35s, max expected child time about 140s.
 - If warmup fails, skip quota refresh for that account and print that it was skipped; this preserves time for the next cron tick retry inside the same 20-minute window.
 
-If `hermes chat` lacks `--credential-id`, a practical fallback is a short-lived Python subprocess that temporarily sets `model.credential_id`, creates `AIAgent(provider='openai-codex', model='gpt-5.5', enabled_toolsets=['safe'], quiet_mode=True, skip_context_files=True, skip_memory=True)`, calls one warmup ping, and restores the original config in `finally`.
+If `hermes chat` lacks `--credential-id`, prefer a short-lived Python subprocess that loads an isolated credential pool and selects the target account directly, instead of rewriting `~/.hermes/config.yaml`:
+
+```python
+from agent.credential_pool import load_pool
+from run_agent import AIAgent
+
+pool = load_pool('openai-codex')
+entry = pool.select_by_id(credential_id)
+if entry is None:
+    raise RuntimeError('target credential unavailable or could not refresh')
+agent = AIAgent(
+    provider='openai-codex',
+    model='gpt-5.5',
+    enabled_toolsets=['safe'],
+    quiet_mode=True,
+    skip_context_files=True,
+    skip_memory=True,
+    max_iterations=2,
+    credential_pool=pool,
+)
+response = str(agent.chat('Warmup ping. Reply exactly: OK') or '').strip()
+if 'OK' not in response.upper():
+    raise RuntimeError('warmup response did not confirm OK')
+```
+
+Avoid the older temporary `model.credential_id` config-mutation pattern for cron warmups: it can race with live gateway/dashboard config reads and makes it harder to prove the wake ping used the intended account.
 
 ## Safe quota refresh verification
 

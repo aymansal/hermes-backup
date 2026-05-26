@@ -348,6 +348,26 @@ For “always backed up,” prefer a no-agent cron/Raid Timer that runs a determ
 
 See `references/private-recovery-backup-vault.md` for the full recovery-vault shape, restore path, verification commands, and pitfalls.
 
+### Fresh install + knowledge-only restore pitfall
+
+When restoring Hermes onto a new/friend VPS, prefer **fresh official install first, knowledge-only restore second**. Do not restore `source/hermes-agent/` over the install by default; it can create broken venv/path/symlink states where the global `hermes` command is missing or only works from a specific directory.
+
+Recommended flow:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+source ~/.bashrc 2>/dev/null || true
+export PATH="$HOME/.local/bin:$PATH"
+cd ~/hermes-backup
+git pull
+bash scripts/restore.sh --knowledge-only --yes
+hermes login --provider openai-codex
+hermes doctor
+hermes
+```
+
+The recovery repo restore helper should default to `--knowledge-only` (persona/profile/config/skills/memory/kanban/cron, `.env` template only) and reserve `--full` for explicit exact recovery of source/systemd. See `references/hermes-fresh-install-knowledge-restore.md` for the detailed pattern and verification commands.
+
 ## User communication style during these tasks
 
 The user wants direct, tactical execution under his command authority:
@@ -368,4 +388,5 @@ Use Shadow System Operator flavor sparingly: practical report first, flavor seco
 - `references/native-dashboard-tailscale-shadow-realm.md` — persistent native Hermes dashboard (“Shadow Realm”) over Tailscale via systemd user service, verification commands, reboot-survival checks, and security caveats.
 - `references/native-dashboard-codex-quota.md` — Codex/ChatGPT quota display in the native dashboard and Telegram runtime footer: live `/usage` endpoint, 5-second dashboard polling, sanitized data only, remaining quota (`% left`) preference, and timezone mismatch pitfall between browser-rendered dashboard and VPS-rendered Telegram footer.
 - `references/private-recovery-backup-vault.md` — private GitHub recovery vault pattern for backing up Hermes source/config/skills/memory/systemd without committing Access Keys, logs, caches, or session transcripts.
+- `references/hermes-fresh-install-knowledge-restore.md` — safer new-VPS recovery pattern: install Hermes fresh for a healthy command/venv/PATH layer, then restore only Hermes persona/config/skills/memory/kanban/cron knowledge before Codex OAuth login.
 - `references/local-stt-parakeet.md` — local/custom STT bridge for Hermes voice messages using NVIDIA Parakeet/Spokenly via `HERMES_LOCAL_STT_COMMAND`, including Oracle ARM VPS suitability checks and Tailscale bridge alternative.

@@ -42,6 +42,14 @@ Before destructive cleanup:
 
 ## Ayman-Specific Workspace Notes
 - See `references/ayman-pos-workspace.md` for the current POS business workspace convention.
+- See `references/ayman-project-backup-boundaries.md` before answering whether Hermes backups contain POS/Samurai/Spana/ImmoPilot project code.
+
+## Backup Boundary Doctrine
+When Ayman asks whether a Hermes backup also includes business apps/projects, distinguish clearly between:
+1. **Hermes recovery backup** — Hermes source/config/persona/skills/memory/kanban/cron/systemd/env template.
+2. **Project/code backups** — actual app repositories/folders such as POS, Samurai, Spana, ImmoPilot, client systems.
+
+Do not imply Hermes can resurrect project code just because it remembers project facts. Hermes memory and Skill Runes may contain notes, plans, and references, but not necessarily the actual repo files. Verify with the backup manifest or repo contents before answering.
 
 ## Common Pitfalls
 - Do not leave important uploaded business documents only in `/home/ubuntu/.hermes/cache/documents/`; cache paths are transient work areas, not project homes.

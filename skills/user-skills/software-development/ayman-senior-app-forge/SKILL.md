@@ -14,6 +14,8 @@ metadata:
 
 ## Purpose
 
+Reference: `references/immopilot-source-records-project-lens-cost-allocation.md` captures Ayman's ImmoPilot doctrine correction: global navbar = company-wide source records, project tabs = project lens, global `Inventaire` vs project `Unités`, project `Coûts` as allocated costs, and one `Personnel` module with payroll/salaries inside.
+
 Use this Skill Rune before planning, reviewing, or implementing serious apps for Ayman: POS, SaaS, ERP, CRM, inventory, dashboards, admin panels, or Moroccan business systems.
 
 The goal is to stop AI-generated junior spaghetti by forcing:
@@ -66,7 +68,8 @@ Default ImmoPilot stack:
 - one main Vercel deployment
 - one shared Convex backend/database
 - two controlled surfaces: platform/operator dashboard for Ayman-side SaaS operations, and tenant ERP app for client organizations
-- platform/operator dashboard manages tenant onboarding, client/payment status, invites/credentials, support, audit visibility, and tenant suspend/reactivate controls
+- platform/operator dashboard manages manual tenant onboarding, client/payment status, invites/credentials, support, audit visibility, and tenant suspend/reactivate controls
+- early ImmoPilot SaaS is manual B2B onboarding: no Stripe/pricing/credit-card checkout as a first requirement; Moroccan clients may pay Ayman by bank transfer/manual arrangement, then Ayman creates or activates their organization/users in `/platform`
 - tenant ERP app serves client organizations such as Sobhi Immobilier and scopes all tenant data by `organizationId`
 - many organizations/companies as tenants
 - tenant isolation by `organizationId`
@@ -76,7 +79,10 @@ Default ImmoPilot stack:
 - during ImmoPilot local development, keep WARP off unless Ayman explicitly approves turning it on for a specific need; Tailscale/dev preview checks should not silently re-enable it
 - real-estate hierarchy: Organization → Project → Tranche → Bloc → Building → Floor → Apartment
 - auditable cost/profit flows
-- employee/staff registry and payroll/salary tracking are required ImmoPilot modules; monthly salary payment status, payroll permissions, and payroll audit logs must be designed before implementation
+- employee/staff registry and payroll/salary tracking are required ImmoPilot capabilities; for MVP they should live together under one global `Personnel` module rather than duplicate `Employees` and `Payroll` sidebar modules
+- monthly salary payment status, payroll permissions, and payroll audit logs must be designed before implementation
+- global company navigation owns source records; project tabs are project lenses over linked/allocated records, not duplicate source-record modules
+- purchases, payments, and personnel/payroll costs should be organization-owned first and then optionally allocated across one or more projects, supporting Sobhi-style shared cement/staff costs
 
 POS products are later modules/products, not the first SaaS schema driver. Snack-spana, ElectroMA, Samurai-style retail, and general POS can be added after ImmoPilot's foundation is stable.
 
@@ -192,7 +198,7 @@ When working on an actual repo, read the relevant files before creating implemen
 7. **MVP scope** — lock what is in v1 and what is explicitly out of scope before workers start.
 8. **Permission model** — define roles, granular permission keys, sensitive actions, and audit requirements.
 9. **Screen blueprints** — define each important screen's purpose, layout, required states, and mobile behavior.
-10. **Kanban cards** — split into small tasks with acceptance criteria and review gates. For Ayman, it is acceptable to consciously skip full Kanban for low-risk local bootstrap/status work, but state that decision briefly; forgetting Kanban discipline is the problem, not making an explicit low-risk commander call.
+10. **Kanban cards** — split into small tasks with acceptance criteria and review gates. For Ayman, use Kanban for non-trivial code/backend/UI raids, multi-step implementations, risky changes, or work needing independent review. It is acceptable to consciously skip full Kanban for low-risk local bootstrap/status work or small doctrine/documentation corrections, especially when Ayman says “no need for Kanban” / “just do it”; state that decision briefly, patch directly, verify, and commit only the intended docs. Forgetting Kanban discipline is the problem, not making an explicit low-risk commander call.
 11. **Worker implementation** — workers implement only one card/slice at a time.
 12. **Hallmark UI audit** — for important UI screens/components, automatically apply Hallmark-style anti-slop review before PASS. It audits/polishes only; it does not override ImmoPilot doctrine, `DESIGN.md`, tenant workflows, or ERP clarity.
 13. **Independent review** — GPT-5.5/reviewer checks architecture, security, tenant isolation, UI, and tests.
@@ -255,6 +261,9 @@ For ImmoPilot UI work, also require:
 - for ImmoPilot product-direction prototypes, do not default to a huge scrollable enterprise sidebar; prefer compact top nav/pill navigation, secondary tabs, or a thin non-scroll rail so all primary modules are reachable without sidebar scrolling
 - when Ayman asks for a clickable visual MVP, consider producing or iterating toward two directions: a serious ERP baseline for module coverage and a modern compact SaaS direction for taste/product feel
 - for current ImmoPilot implementation UI, use V1's serious ERP module coverage/density as the functional baseline, but use V2's compact/top navigation idea instead of V1's oversized scrollable sidebar; Ayman may personally redesign final UI later, so prioritize stitching real flows/buttons/states over speculative aesthetic polish
+- ImmoPilot navigation doctrine: global navbar represents company-wide source records, while project tabs represent a project lens. Prefer global `Inventaire` for all organization units and project `Unités` for this project's units. Avoid duplicating global `Achats`/`Paiements` inside project tabs; use project `Coûts` for allocated costs from purchases, payments, personnel/payroll, and other expense records. Use one global `Personnel` module for employees + payroll rather than separate duplicated Employees/Payroll sidebar modules; see `references/immopilot-global-nav-project-lens.md`.
+- modern/creative for Ayman means airy rounded SaaS polish, compact navigation, strong typography, thoughtful whitespace, and domain-useful cards — not decorative Dribbble UI or generic dashboard sludge
+- use one global `Personnel` module for employees + payroll/salary status/payment/allocation instead of separate duplicated sidebar modules
 - modern/creative for Ayman means airy rounded SaaS polish, compact navigation, strong typography, thoughtful whitespace, and domain-useful cards — not decorative Dribbble UI or generic dashboard sludge
 - reject generic dashboard filler, random gradients, decorative charts, excessive motion, brand cloning, oversized scrollable sidebars, and UI packs that override domain usability
 - see `references/immopilot-ui-stitching-decision.md` for the V1/V2 prototype decision and how to implement UI while preserving redesign flexibility
@@ -279,6 +288,7 @@ Next move
 
 - `references/pos-saas-convex-tenant-isolation.md` — session-specific doctrine extracted from Ayman's legacy POS/SaaS discussion.
 - `references/immopilot-saas-doctrine.md` — current ImmoPilot doctrine: product naming, Sobhi-as-first-tenant correction, real-estate ERP hierarchy, `organizationId` tenant isolation, reliability rules, and POS-later boundary.
+- `references/immopilot-manual-b2b-saas-onboarding.md` — manual B2B SaaS onboarding doctrine: no Stripe/pricing first, use `/platform` operator dashboard to create/activate organizations and users after bank transfer/manual payment.
 - `references/immopilot-ui-reference-pack.md` — how to use external UI skill packs (`awesome-design-md`, UI UX Pro Max, awesome-design-skills, Impeccable, future Taste link) as curated ingredients for ImmoPilot UI without overriding domain doctrine.
 - `references/immopilot-dev-preview-and-convex-auth.md` — previewing the local ImmoPilot app over Tailscale, verifying the dev server route, and handling Convex device auth safely.
 - `references/immopilot-dev-shadows-sleep-wake.md` — stopping/resuming ImmoPilot local dev shadows safely; wake Convex + Next.js, verify local/Tailscale HTTP 200, keep WARP inactive unless explicitly needed.
@@ -290,3 +300,6 @@ Next move
 - `references/immopilot-kanban-security-foundation-review.md` — session-proven Kanban/review lessons for ImmoPilot security foundation cards, including active-only memberships, non-leaking `safeError`, and Convex watcher duplicate-symbol verification.
 - `references/immopilot-project-hierarchy-schema-and-crud.md` — session-proven hierarchy schema and project CRUD workflow: schema-only vs CRUD card split, `organizationId`-leading parent/status indexes, project CRUD permission/audit requirements, and review pitfalls.
 - `references/immopilot-visual-prototype-feedback.md` — visual prototype feedback: V1 oversized scrollable sidebar problem, V2 compact/modern SaaS direction, and how to use airy rounded references without losing ERP seriousness.
+- `references/immopilot-global-nav-project-lens.md` — product/navigation doctrine: global navbar as company-wide source records, project tabs as project lens, `Inventaire` vs `Unités`, `Coûts` for allocated project costs, and single `Personnel` module for employees/payroll.
+- `references/immopilot-global-records-vs-project-lens.md` — navigation and finance doctrine correction: global navbar owns company-wide source records, project tabs are project lenses, purchases/personnel costs can be allocated across projects, and employees/payroll belong together under one Personnel module.
+- `references/immopilot-convex-polymorphic-allocation-typing.md` — Convex typing lessons for `costAllocations.sourceType/sourceId`, `Pick<QueryCtx, "db">` helper ctx typing, avoiding invalid template-string ID casts, and verifying Convex-specific typecheck before PASS.

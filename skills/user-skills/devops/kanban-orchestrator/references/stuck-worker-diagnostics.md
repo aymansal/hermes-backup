@@ -38,8 +38,9 @@ If the card affects a live dev preview, also check the route error separately. F
 2. Ask before killing or reclaiming, unless the user has already authorized that exact recovery path.
 3. Preserve worker-written files unless the user explicitly chose revert/cancel.
 4. Reclaim/interrupt the worker, then run verification yourself or create a focused fix card with the exact failure.
-5. Only promote to review after the route/build/test gates are healthy enough for a reviewer to inspect meaningful output.
-6. Do not commit from a stuck worker's output until GPT-5.5 review returns PASS and the General verifies served routes/assets.
+5. If the worker clearly wrote useful files and froze at `preparing kanban_complete`, the user may authorize a manual completion to unlock an already-created dependent reviewer. In that case: stop the stuck worker process, mark the worker task `done` with a summary that explicitly says `review-required handoff, not PASS`, preserve uncommitted changes, dispatch the reviewer, and do not commit or claim success until reviewer PASS plus operator verification.
+6. Only promote to review after the route/build/test gates are healthy enough for a reviewer to inspect meaningful output.
+7. Do not commit from a stuck worker's output until GPT-5.5 review returns PASS and the General verifies served routes/assets.
 
 ## Operator language
 

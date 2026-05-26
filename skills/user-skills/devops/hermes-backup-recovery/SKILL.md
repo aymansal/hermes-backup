@@ -1,0 +1,106 @@
+---
+name: hermes-backup-recovery
+description: Back up and restore a Hermes Agent installation across VPS hosts using sanitized recovery vaults, restore scripts, and Access Key separation.
+tags:
+  - hermes
+  - backup
+  - restore
+  - disaster-recovery
+  - vps
+---
+
+# Hermes Backup Recovery
+
+## Purpose
+Use this skill when the user asks how to back up, clone, migrate, or restore a Hermes Agent setup onto a new VPS. The goal is to restore Hermes safely without leaking Access Keys or confusing Hermes operational memory with external project source-code backups.
+
+## Required Access Keys / Values
+- GitHub access method for the private recovery vault, or an alternate transfer route.
+- New VPS SSH access if copying archives directly.
+- Runtime Access Keys to refill `~/.hermes/.env` after restore.
+- OAuth re-login ability for providers such as OpenAI Codex, Nous, Qwen, etc.
+
+Never print, store, or commit secret values. `.env`, `auth.json`, OAuth tokens, Telegram bot tokens, SSH keys, and cookies stay out of sanitized backups.
+
+## Recovery Vault Shape
+A sanitized Hermes recovery vault should include:
+- Hermes source snapshot, usually `~/.hermes/hermes-agent`
+- sanitized `config.yaml`, `SOUL.md`, `OPERATOR_PROFILE.md`
+- Skill Runes
+- Holographic/fact memory DB if the user wants the same knowledge
+- Kanban DB and cron definitions when needed
+- sanitized systemd user units
+- `secrets/env.template` with key names only
+- `scripts/restore.sh` that performs the actual restore
+
+It should exclude:
+- `.env` secret values
+- `auth.json` / OAuth tokens
+- Telegram/GitHub/model provider tokens
+- SSH private keys
+- raw logs, caches, media caches
+- session transcript DB unless explicitly requested
+
+## Safe Read-only Checks
+Before answering what is backed up, inspect:
+```bash
+cat backup-manifest.json
+find . -maxdepth 2 -type d | sort
+find . -name '.env' -o -name 'auth.json' -o -name 'state.db' -o -name '*.pem' -o -name '*.key'
+```
+
+If asked whether business app repos are included, verify by manifest/search. Do not assume Hermes memory equals project code.
+
+## Restore Workflow
+On the new VPS, after cloning the recovery vault:
+```bash
+sudo apt update
+sudo apt install -y git curl rsync python3 python3-venv python3-pip build-essential
+
+git clone https://github.com/OWNER/hermes-backup.git
+cd hermes-backup
+bash scripts/restore.sh
+```
+
+Then refill keys and verify:
+```bash
+nano ~/.hermes/.env
+cd ~/.hermes/hermes-agent
+hermes doctor
+```
+
+Then start the Comms Gate only after Access Keys and OAuth logins are ready:
+```bash
+loginctl enable-linger "$USER"
+systemctl --user daemon-reload
+systemctl --user enable --now hermes-gateway
+systemctl --user status hermes-gateway --no-pager -n 50
+```
+
+## Restore Script Requirements
+A good `scripts/restore.sh` should:
+1. Ask before overwriting unless passed `--yes`.
+2. Support `--dry-run`.
+3. Install basic packages only when not skipped.
+4. Restore config, source, skills, state, and systemd units.
+5. Create `.env` from template but never overwrite existing `.env`.
+6. Preserve or warn about existing `auth.json`; do not restore secrets silently.
+7. Run `hermes doctor` after copy when not in dry-run mode.
+8. Print next steps for `.env`, OAuth login, and gateway start.
+
+## Transfer Routes Without GitHub Login
+If the user does not want to authenticate GitHub on an untrusted VPS:
+- Prefer encrypted archive transfer (`tar` + `gpg -c` + `scp`).
+- Or use a fine-grained read-only token scoped to one repo and revoke after use.
+- Or use a read-only deploy key and delete it after use.
+- Avoid making a full recovery vault public if it contains memory/state/config context.
+
+## Common System Alerts
+- **Clone only is not restore:** after `git clone`, run `bash scripts/restore.sh`.
+- **Access Key missing:** restore can copy templates, but the Gate will not open until `.env` is filled.
+- **OAuth missing:** `auth.json` is excluded, so login again on the new VPS.
+- **Project code missing:** Hermes backup may restore knowledge about projects but not actual POS/Samurai/Spana/ImmoPilot repos. Use separate Project Vaults.
+- **Delete public temp repo fails:** `gh repo delete` needs `delete_repo` scope; otherwise make it private.
+
+## Ayman-Specific Reference
+See `references/ayman-hermes-recovery-vault.md` for the known current recovery-vault shape and lessons from the restore-script forge.

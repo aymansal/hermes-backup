@@ -46,3 +46,20 @@ Recovery pattern before asking Ayman to inspect UI or before committing preview-
 5. For visual preview, verify critical CSS/assets as needed before sharing the link.
 
 Do not classify this as a code failure until cache has been cleared and routes rechecked. Do not restart/clear without Ayman approval when it touches his running preview gate.
+
+## Review-required handoffs after a stuck/blocked worker
+
+When a worker writes useful files but cannot complete cleanly (for example freezes at `preparing kanban_complete`, or blocks with `review-required` after one environment-dependent gate such as Convex 401), keep the status language precise:
+
+- Marking the worker `done` is only a handoff unlock, not approval.
+- The completion summary must say `review-required handoff, not PASS`.
+- Preserve uncommitted files unless the user chooses revert/cancel.
+- Immediately create or dispatch an independent GPT-5.5 review card with the exact changed files, route probes, and quality gates.
+- If the issue was a dev preview cache problem, resummon the preview and re-probe routes before dispatching review so the reviewer sees meaningful output.
+- Do not commit until the review card returns PASS and the General verifies routes/assets again.
+
+Useful summary pattern:
+
+```text
+Review-required handoff, not PASS: worker wrote <scope>, but <freeze/block reason>. Preserved uncommitted changes for GPT-5.5 review. No commit performed.
+```

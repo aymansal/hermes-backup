@@ -455,13 +455,14 @@ approvals:
   mcp_reload_confirm: true
   destructive_slash_confirm: false
 command_allowlist:
-- shell command via -c/-lc flag
-- overwrite system file via tee
-- stop/restart hermes gateway (kills running agents)
 - stop/restart system service
-- script execution via -e/-c flag
 - delete in root path
+- overwrite system file via tee
+- script execution via -e/-c flag
+- shell command via -c/-lc flag
 - recursive delete
+- stop/restart hermes gateway (kills running agents)
+- git force push (rewrites remote history)
 quick_commands: {}
 hooks: {}
 hooks_auto_accept: false

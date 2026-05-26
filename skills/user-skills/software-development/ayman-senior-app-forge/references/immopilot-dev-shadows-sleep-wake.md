@@ -11,6 +11,7 @@ Use when Ayman asks to:
 - resume what was stopped yesterday
 - turn back on the local dev app
 - verify that WARP stayed off
+- says he is awake/ready and then points at ImmoPilot after a prior sleep-mode shutdown
 
 ## Durable preference
 
@@ -43,6 +44,8 @@ Tailscale: active
 ```
 
 ## Wake protocol
+
+If Ayman says he is awake/ready and then names ImmoPilot after a sleep-mode shutdown, treat it as a normal wake/resume request for the ImmoPilot local preview. Do not ask for a broad clarification first; perform the read-only scan, start only the normal Convex + Next dev shadows if they are down, keep WARP inactive, avoid public Cloudflare unless explicitly requested, and verify local + Tailscale HTTP before reporting the Gate open.
 
 Read-only scan first:
 
@@ -91,7 +94,7 @@ WARP: inactive
 Tailscale: active
 ```
 
-Report the process IDs if started via Hermes background tools, and give Ayman the preview URL:
+Report the process IDs if started via Hermes background tools, and give Ayman the preview URL plus the most useful current deep links verified in that run. Do not list stale/closed public tunnel URLs as active preview Gates.
 
 ```text
 http://100.72.70.121:3000
