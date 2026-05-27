@@ -74,9 +74,21 @@ install_hermes_cli() {
   fi
 
   if [ "$MODE" = "full" ]; then
-    [ -f "$HERMES_HOME/hermes-agent/scripts/install.sh" ] || fail "Restored source is missing scripts/install.sh; cannot install Hermes CLI."
-    log "Installing global hermes CLI launcher from restored source snapshot."
-    run bash "$HERMES_HOME/hermes-agent/scripts/install.sh" --skip-setup --dir "$HERMES_HOME/hermes-agent" --hermes-home "$HERMES_HOME"
+    [ -f "$HERMES_HOME/hermes-agent/pyproject.toml" ] || fail "Restored source is missing pyproject.toml; cannot install Hermes CLI."
+    log "Installing hermes CLI from restored non-git source snapshot."
+    run bash -lc "cd \"$HERMES_HOME/hermes-agent\" && python3 -m venv venv && venv/bin/python -m pip install --upgrade pip && venv/bin/python -m pip install -e '.[all]'"
+    run mkdir -p "$HOME/.local/bin"
+    if [ "$DRY_RUN" = 1 ]; then
+      printf '[dry-run] write hermes launcher to %q\n' "$HOME/.local/bin/hermes"
+    else
+      cat > "$HOME/.local/bin/hermes" <<EOF_LAUNCHER
+#!/usr/bin/env bash
+unset PYTHONPATH
+unset PYTHONHOME
+exec "$HERMES_HOME/hermes-agent/venv/bin/hermes" "\$@"
+EOF_LAUNCHER
+      chmod +x "$HOME/.local/bin/hermes"
+    fi
   else
     log "Hermes CLI missing; installing official Hermes first for knowledge-only restore."
     if [ "$DRY_RUN" = 1 ]; then
