@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Restore Ayman's Hermes recovery vault.
-# Recommended for a new VPS: install Hermes fresh first, then run --knowledge-only.
+# Recommended for a new VPS: run this script in default full-clone mode.
+# It restores the source/dashboard snapshot, memory/skills/config, then installs the hermes CLI launcher.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -8,37 +9,41 @@ HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 ASSUME_YES=0
 DRY_RUN=0
-MODE="knowledge"  # knowledge | full
-SKIP_PACKAGES=1
+MODE="full"  # full | knowledge
+SKIP_PACKAGES=0
 SKIP_SYSTEMD=1
+INSTALL_HERMES=1
 
 usage() {
   cat <<'EOF'
 Hermes Restore Script — Shadow System Recovery
 
-Recommended clean flow:
-  1. Install Hermes fresh using the official installer.
-  2. Run: bash scripts/restore.sh --knowledge-only --yes
-  3. Run: hermes login --provider openai-codex
+Recommended friend-clone flow:
+  1. Run: bash scripts/restore.sh --yes
+  2. Fill ~/.hermes/.env with the new VPS Access Keys.
+  3. Run: hermes login --provider openai-codex, if using Codex OAuth.
   4. Run: hermes doctor
 
 Usage:
   bash scripts/restore.sh [options]
 
 Options:
-  --knowledge-only  Restore Hermes brain/persona/skills/memory/config only. Does NOT overwrite source or systemd. Default.
-  --full            Restore source snapshot and systemd too. More invasive; use only for exact recovery.
+  --full            Restore source/dashboard snapshot plus brain/persona/skills/memory/config. Default.
+  --knowledge-only  Restore brain/persona/skills/memory/config only. Does NOT overwrite source/dashboard.
   --yes             Do not ask before restoring.
   --dry-run         Show what would be restored, but do not write files.
-  --with-packages   Install base apt packages.
-  --with-systemd    Restore systemd user units. Only meaningful with --full.
+  --with-packages   Install base apt packages. Default in --full mode.
+  --with-systemd    Restore systemd user units. Off by default; useful only for exact recovery.
+  --no-install-hermes  Do not install/reinstall the global hermes CLI launcher.
   -h, --help        Show this help.
 
-Knowledge-only restores:
+Default full restores:
+  - ~/.hermes/hermes-agent source snapshot, including the customized dashboard build/code
   - ~/.hermes/config.yaml and persona/profile files
   - ~/.hermes/skills
   - ~/.hermes/memory_store.db, kanban.db, cron definitions
   - ~/.hermes/.env template only if .env does not exist
+  - global hermes CLI launcher, installed from the restored source snapshot
 
 Never restored:
   - secret values
@@ -58,14 +63,48 @@ run() {
   fi
 }
 
+install_hermes_cli() {
+  if [ "$INSTALL_HERMES" != 1 ]; then
+    return 0
+  fi
+
+  if [ "$MODE" = "knowledge" ] && command -v hermes >/dev/null 2>&1; then
+    log "Hermes CLI already found: $(command -v hermes)"
+    return 0
+  fi
+
+  if [ "$MODE" = "full" ]; then
+    [ -f "$HERMES_HOME/hermes-agent/scripts/install.sh" ] || fail "Restored source is missing scripts/install.sh; cannot install Hermes CLI."
+    log "Installing global hermes CLI launcher from restored source snapshot."
+    run bash "$HERMES_HOME/hermes-agent/scripts/install.sh" --skip-setup --dir "$HERMES_HOME/hermes-agent" --hermes-home "$HERMES_HOME"
+  else
+    log "Hermes CLI missing; installing official Hermes first for knowledge-only restore."
+    if [ "$DRY_RUN" = 1 ]; then
+      printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup --hermes-home %q\n' "$HERMES_HOME"
+    else
+      curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup --hermes-home "$HERMES_HOME"
+    fi
+  fi
+
+  if [ "$DRY_RUN" = 1 ]; then
+    log "Dry-run: skipped post-install PATH verification."
+    return 0
+  fi
+
+  export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+  command -v hermes >/dev/null 2>&1 || fail "Hermes CLI install finished, but 'hermes' is still not on PATH. Try: source ~/.bashrc && export PATH=\"$HOME/.local/bin:/usr/local/bin:\$PATH\""
+  log "Hermes CLI ready: $(command -v hermes)"
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --knowledge-only) MODE="knowledge"; SKIP_PACKAGES=1; SKIP_SYSTEMD=1 ;;
-    --full) MODE="full"; SKIP_PACKAGES=0; SKIP_SYSTEMD=0 ;;
+    --full) MODE="full"; SKIP_PACKAGES=0 ;;
     --yes) ASSUME_YES=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --with-packages) SKIP_PACKAGES=0 ;;
     --with-systemd) SKIP_SYSTEMD=0 ;;
+    --no-install-hermes) INSTALL_HERMES=0 ;;
     -h|--help) usage; exit 0 ;;
     *) fail "Unknown option: $1" ;;
   esac
@@ -78,6 +117,7 @@ done
 log "Restore root: $ROOT"
 log "Hermes home:  $HERMES_HOME"
 log "Mode:         $MODE"
+log "Install CLI:  $INSTALL_HERMES"
 
 if [ "$ASSUME_YES" != 1 ] && [ "$DRY_RUN" != 1 ]; then
   cat <<EOF
@@ -88,7 +128,10 @@ Mode: $MODE
 Secret files like ~/.hermes/.env and ~/.hermes/auth.json will NOT be overwritten.
 EOF
   if [ "$MODE" = "full" ]; then
-    warn "FULL mode may move/replace ~/.hermes/hermes-agent and restore systemd units."
+    warn "FULL mode may move/replace ~/.hermes/hermes-agent, then reinstall the hermes CLI launcher from the restored source."
+    if [ "$SKIP_SYSTEMD" = 0 ]; then
+      warn "Systemd user units will also be restored because --with-systemd was requested."
+    fi
   fi
   read -r -p "Continue? Type YES to proceed: " answer
   [ "$answer" = "YES" ] || fail "Restore cancelled."
@@ -146,6 +189,8 @@ if [ "$MODE" = "full" ]; then
   run rsync -a "$ROOT/source/hermes-agent/" "$HERMES_HOME/hermes-agent/"
 fi
 
+install_hermes_cli
+
 if [ "$SKIP_SYSTEMD" = 0 ] && [ -d "$ROOT/systemd" ]; then
   log "Restoring systemd user units."
   run mkdir -p "$SYSTEMD_USER_DIR"
@@ -166,18 +211,18 @@ elif command -v hermes >/dev/null 2>&1; then
   log "Running hermes doctor."
   hermes doctor || warn "hermes doctor reported issues. Usually missing OAuth login or Access Keys."
 else
-  warn "hermes CLI not found in PATH. Install Hermes fresh, reload shell, then rerun --knowledge-only."
+  warn "hermes CLI not found in PATH after restore. Reload shell and check ~/.local/bin or /usr/local/bin."
 fi
 
 cat <<EOF
 
 Next commands:
   source ~/.bashrc 2>/dev/null || true
-  export PATH="$HOME/.local/bin:$PATH"
+  export PATH="\$HOME/.local/bin:/usr/local/bin:\$PATH"
   which hermes
   hermes login --provider openai-codex
   hermes doctor
   hermes
 
-System note: knowledge restored. Secrets/OAuth still need login. No key, no summon.
+System note: Hermes body/brain restored according to mode. Secrets/OAuth still need login. No key, no summon.
 EOF
