@@ -20,9 +20,9 @@ Hermes Restore Script — Shadow System Recovery
 
 Recommended friend-clone flow:
   1. Run: bash scripts/restore.sh --yes
-  2. Fill ~/.hermes/.env with the new VPS Access Keys.
-  3. Run: hermes login --provider openai-codex, if using Codex OAuth.
-  4. Run: hermes doctor
+  2. Run: hermes login --provider openai-codex
+  3. Run: hermes
+  4. Ask Hermes to configure Telegram interactively. Paste secrets only when Hermes asks.
 
 Usage:
   bash scripts/restore.sh [options]
@@ -214,15 +214,17 @@ else
   warn "hermes CLI not found in PATH after restore. Reload shell and check ~/.local/bin or /usr/local/bin."
 fi
 
-cat <<EOF
+cat <<'EOF'
 
 Next commands:
   source ~/.bashrc 2>/dev/null || true
-  export PATH="\$HOME/.local/bin:/usr/local/bin:\$PATH"
+  export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
   which hermes
   hermes login --provider openai-codex
-  hermes doctor
   hermes
 
-System note: Hermes body/brain restored according to mode. Secrets/OAuth still need login. No key, no summon.
+Inside Hermes, paste this mission:
+  Set up Hermes on this VPS using my ChatGPT Codex login as the model provider. Configure Telegram gateway from scratch. Guide me to create a Telegram bot with BotFather, ask me for the token, save it securely in ~/.hermes/.env without printing it back, configure the gateway, set my current Telegram chat as home, start the systemd user service only after I approve, and verify end-to-end.
+
+System note: Hermes body/brain restored according to mode. Secrets/OAuth still need login. BotFather token must be provided by the operator when Hermes asks. No key, no summon.
 EOF
