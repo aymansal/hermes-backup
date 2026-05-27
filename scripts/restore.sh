@@ -347,6 +347,8 @@ else
 fi
 
 ensure_env_default "BROWSER_INACTIVITY_TIMEOUT" "300"
+ensure_env_default "TERMINAL_TIMEOUT" "180"
+ensure_env_default "TERMINAL_LIFETIME_SECONDS" "300"
 normalize_operational_toolsets
 
 if [ -f "$HERMES_HOME/config.yaml" ] && grep -q "credential_id: <SET_ON_RESTORE>" "$HERMES_HOME/config.yaml"; then

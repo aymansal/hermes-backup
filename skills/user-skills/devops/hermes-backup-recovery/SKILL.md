@@ -41,7 +41,7 @@ It should exclude:
 - raw logs, caches, media caches
 - session transcript DB unless explicitly requested
 
-For friend clones, ensure terminal Hermes and Comms Gates have operational toolsets. Top-level `toolsets` must include `terminal`, `file`, `code_execution`, `web`, `skills`, etc.; if it is restored as only `hermes-cli`, even the local terminal session can report that no active terminal execution gate/tools are available. For Telegram, `platform_toolsets.telegram` should include those operational toolsets plus `hermes-telegram`.
+For friend clones, ensure terminal Hermes and Comms Gates have operational toolsets. Top-level `toolsets` must include `terminal`, `file`, `code_execution`, `web`, `skills`, etc.; if it is restored as only `hermes-cli`, even the local terminal session can report that no active terminal execution gate/tools are available. Also ensure `.env` numeric terminal defaults are non-empty: `TERMINAL_TIMEOUT=180` and `TERMINAL_LIFETIME_SECONDS=300`. Empty restored values make `tools/terminal_tool.py` raise `Invalid value for TERMINAL_TIMEOUT: ''` or `Invalid value for TERMINAL_LIFETIME_SECONDS: ''` when the agent tries to execute terminal commands; a fresh Hermes install works because those env vars are absent and code defaults are used. For Telegram, `platform_toolsets.telegram` should include those operational toolsets plus `hermes-telegram`.
 
 ## Safe Read-only Checks
 Before answering what is backed up, inspect:
