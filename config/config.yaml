@@ -22,7 +22,22 @@ codex_warmup:
   mode: selected_only
   min_remaining_percent: 5
 toolsets:
-- hermes-cli
+- browser
+- clarify
+- code_execution
+- cronjob
+- delegation
+- file
+- image_gen
+- memory
+- messaging
+- session_search
+- skills
+- terminal
+- todo
+- tts
+- vision
+- web
 agent:
   max_turns: 90
   gateway_timeout: 1800

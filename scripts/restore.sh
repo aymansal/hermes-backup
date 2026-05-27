@@ -97,6 +97,70 @@ PY
   fi
 }
 
+normalize_operational_toolsets() {
+  local file="$HERMES_HOME/config.yaml"
+  [ -f "$file" ] || return 0
+
+  log "Ensuring CLI Hermes has operational toolsets, not only hermes-cli."
+  if [ "$DRY_RUN" = 1 ]; then
+    printf '[dry-run] normalize top-level toolsets in %q\n' "$file"
+    return 0
+  fi
+
+  python3 - "$file" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+lines = path.read_text().splitlines()
+operational_block = [
+    "toolsets:",
+    "- browser",
+    "- clarify",
+    "- code_execution",
+    "- cronjob",
+    "- delegation",
+    "- file",
+    "- image_gen",
+    "- memory",
+    "- messaging",
+    "- session_search",
+    "- skills",
+    "- terminal",
+    "- todo",
+    "- tts",
+    "- vision",
+    "- web",
+]
+
+out = []
+i = 0
+replaced = False
+while i < len(lines):
+    line = lines[i]
+    if line == "toolsets:" and not line.startswith(" "):
+        j = i + 1
+        block = []
+        while j < len(lines) and (lines[j].startswith("-") or lines[j].startswith(" ")):
+            block.append(lines[j].strip())
+            j += 1
+        if block == ["- hermes-cli"] or "- terminal" not in block:
+            out.extend(operational_block)
+            replaced = True
+        else:
+            out.extend(lines[i:j])
+        i = j
+        continue
+    out.append(line)
+    i += 1
+
+if not replaced and "toolsets:" not in lines:
+    out = operational_block + out
+
+path.write_text("\n".join(out) + "\n")
+PY
+}
+
 patch_openai_sdk_none_output() {
   local python_bin="$HERMES_HOME/hermes-agent/venv/bin/python"
   [ -x "$python_bin" ] || return 0
@@ -283,6 +347,7 @@ else
 fi
 
 ensure_env_default "BROWSER_INACTIVITY_TIMEOUT" "300"
+normalize_operational_toolsets
 
 if [ -f "$HERMES_HOME/config.yaml" ] && grep -q "credential_id: <SET_ON_RESTORE>" "$HERMES_HOME/config.yaml"; then
   log "Clearing placeholder model.credential_id so the first added Codex credential can be used."

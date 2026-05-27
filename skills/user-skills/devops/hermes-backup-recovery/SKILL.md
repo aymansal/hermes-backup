@@ -41,6 +41,8 @@ It should exclude:
 - raw logs, caches, media caches
 - session transcript DB unless explicitly requested
 
+For friend clones, ensure terminal Hermes and Comms Gates have operational toolsets. Top-level `toolsets` must include `terminal`, `file`, `code_execution`, `web`, `skills`, etc.; if it is restored as only `hermes-cli`, even the local terminal session can report that no active terminal execution gate/tools are available. For Telegram, `platform_toolsets.telegram` should include those operational toolsets plus `hermes-telegram`.
+
 ## Safe Read-only Checks
 Before answering what is backed up, inspect:
 ```bash
