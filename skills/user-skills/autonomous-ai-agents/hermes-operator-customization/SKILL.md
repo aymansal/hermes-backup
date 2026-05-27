@@ -361,7 +361,7 @@ export PATH="$HOME/.local/bin:$PATH"
 cd ~/hermes-backup
 git pull
 bash scripts/restore.sh --knowledge-only --yes
-hermes login --provider openai-codex
+hermes auth add openai-codex
 hermes doctor
 hermes
 ```

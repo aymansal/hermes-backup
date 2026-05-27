@@ -20,7 +20,7 @@ Hermes Restore Script — Shadow System Recovery
 
 Recommended friend-clone flow:
   1. Run: bash scripts/restore.sh --yes
-  2. Run: hermes login --provider openai-codex
+  2. Run: hermes auth add openai-codex
   3. Run: hermes
   4. Ask Hermes to configure Telegram interactively. Paste secrets only when Hermes asks.
 
@@ -60,6 +60,40 @@ run() {
     printf '[dry-run] %q ' "$@"; printf '\n'
   else
     "$@"
+  fi
+}
+
+ensure_env_default() {
+  local key="$1"
+  local value="$2"
+  local file="$HERMES_HOME/.env"
+  [ -f "$file" ] || return 0
+
+  if grep -q "^${key}=" "$file"; then
+    if grep -q "^${key}=$" "$file"; then
+      log "Setting empty ${key} to safe default ${value}."
+      if [ "$DRY_RUN" = 1 ]; then
+        printf '[dry-run] set %s=%s in %q\n' "$key" "$value" "$file"
+      else
+        python3 - "$file" "$key" "$value" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+key = sys.argv[2]
+value = sys.argv[3]
+lines = path.read_text().splitlines()
+path.write_text("\n".join(f"{key}={value}" if line == f"{key}=" else line for line in lines) + "\n")
+PY
+      fi
+    fi
+  else
+    log "Adding ${key} safe default ${value}."
+    if [ "$DRY_RUN" = 1 ]; then
+      printf '[dry-run] append %s=%s to %q\n' "$key" "$value" "$file"
+    else
+      printf '\n%s=%s\n' "$key" "$value" >> "$file"
+    fi
   fi
 }
 
@@ -189,6 +223,8 @@ else
   warn "$HERMES_HOME/.env already exists; not overwriting secrets."
 fi
 
+ensure_env_default "BROWSER_INACTIVITY_TIMEOUT" "300"
+
 if [ "$MODE" = "full" ]; then
   [ -d "$ROOT/source/hermes-agent" ] || fail "Missing source/hermes-agent/ directory for --full mode."
   log "Restoring Hermes source snapshot."
@@ -232,7 +268,7 @@ Next commands:
   source ~/.bashrc 2>/dev/null || true
   export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
   which hermes
-  hermes login --provider openai-codex
+  hermes auth add openai-codex
   hermes
 
 Inside Hermes, paste this mission:

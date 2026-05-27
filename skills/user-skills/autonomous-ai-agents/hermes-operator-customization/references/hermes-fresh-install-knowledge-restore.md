@@ -27,7 +27,7 @@ cd ~/hermes-backup
 git pull
 bash scripts/restore.sh --knowledge-only --yes
 
-hermes login --provider openai-codex
+hermes auth add openai-codex
 hermes doctor
 hermes
 ```
@@ -54,7 +54,7 @@ The backup repo's `scripts/restore.sh` should default to `--knowledge-only`, not
 
 - If `hermes: command not found`, first fix the install/PATH layer; do not keep copying source snapshots over the install.
 - If no `venv/bin/hermes` or `.venv/bin/hermes` exists under `~/.hermes/hermes-agent`, that is not a memory/knowledge failure; install Hermes fresh.
-- Do not tell the user to fill every Access Key if they want OAuth-first setup. For Codex/ChatGPT, use `hermes login --provider openai-codex` first, then let Hermes configure remaining providers.
+- Do not tell the user to fill every Access Key if they want OAuth-first setup. For Codex/ChatGPT, use `hermes auth add openai-codex` first, then let Hermes configure remaining providers.
 - If the user is frustrated and asks for commands, give the exact command sequence first and keep explanation short.
 
 ## Verification
@@ -62,7 +62,7 @@ The backup repo's `scripts/restore.sh` should default to `--knowledge-only`, not
 ```bash
 which hermes
 hermes --version
-hermes login --provider openai-codex
+hermes auth add openai-codex
 hermes doctor
 ls -lh ~/.hermes/memory_store.db ~/.hermes/config.yaml 2>/dev/null
 ls ~/.hermes/skills | head

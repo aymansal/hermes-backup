@@ -39,7 +39,7 @@ After restore:
 nano ~/.hermes/.env
 cd ~/.hermes/hermes-agent
 hermes doctor
-hermes login --provider openai-codex  # if Codex/OAuth is needed
+hermes auth add openai-codex  # if Codex/OAuth is needed
 ```
 
 Then start gateway:
