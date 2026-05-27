@@ -225,6 +225,23 @@ fi
 
 ensure_env_default "BROWSER_INACTIVITY_TIMEOUT" "300"
 
+if [ -f "$HERMES_HOME/config.yaml" ] && grep -q "credential_id: <SET_ON_RESTORE>" "$HERMES_HOME/config.yaml"; then
+  log "Clearing placeholder model.credential_id so the first added Codex credential can be used."
+  if [ "$DRY_RUN" = 1 ]; then
+    printf '[dry-run] clear placeholder model.credential_id in %q\n' "$HERMES_HOME/config.yaml"
+  else
+    python3 - "$HERMES_HOME/config.yaml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+text = text.replace("credential_id: <SET_ON_RESTORE>", "credential_id: ''")
+path.write_text(text)
+PY
+  fi
+fi
+
 if [ "$MODE" = "full" ]; then
   [ -d "$ROOT/source/hermes-agent" ] || fail "Missing source/hermes-agent/ directory for --full mode."
   log "Restoring Hermes source snapshot."
