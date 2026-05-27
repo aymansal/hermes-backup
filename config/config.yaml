@@ -574,6 +574,22 @@ platform_toolsets:
   - hermes-teams
   telegram:
   - hermes-telegram
+  - browser
+  - clarify
+  - code_execution
+  - cronjob
+  - delegation
+  - file
+  - image_gen
+  - memory
+  - messaging
+  - session_search
+  - skills
+  - terminal
+  - todo
+  - tts
+  - vision
+  - web
   whatsapp:
   - hermes-whatsapp
   yuanbao:
