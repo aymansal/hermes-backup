@@ -205,7 +205,7 @@ When working on an actual repo, read the relevant files before creating implemen
 14. **Iteration loop** — failed review returns to worker with exact failures.
 15. **Commander verification** — Igris verifies evidence before reporting PASS.
 16. **Active phase reporting** — for Ayman's ImmoPilot raids, report phase changes immediately: worker started, worker completed/blocked, reviewer started, review PASS/BLOCKED, fix iteration spawned, approval gate opened, commit checkpoint created. Do not wait for Ayman to ask after a card finishes; silence after a phase transition is a commander failure.
-17. **Revival Stone checkpoint** — for ImmoPilot repo raids, commit only after a reviewed `PASS`, then start the next raid from a clean working tree. Do not carry uncommitted reviewed changes into the next slice.
+17. **Revival Stone checkpoint** — for ImmoPilot repo raids, commit only after a reviewed `PASS`, then push the reviewed commit to GitHub before starting the next repo-changing raid. Include review/gate evidence in the commit body, verify the pushed branch, and start the next slice from a clean working tree. Do not carry uncommitted reviewed changes into the next slice. If GitHub remote is missing, stop and create/configure the private remote with Ayman's approval before declaring the checkpoint sealed. See `references/immopilot-kanban-github-finalization.md`.
 
 ## Quality gates
 
@@ -303,3 +303,5 @@ Next move
 - `references/immopilot-global-nav-project-lens.md` — product/navigation doctrine: global navbar as company-wide source records, project tabs as project lens, `Inventaire` vs `Unités`, `Coûts` for allocated project costs, and single `Personnel` module for employees/payroll.
 - `references/immopilot-global-records-vs-project-lens.md` — navigation and finance doctrine correction: global navbar owns company-wide source records, project tabs are project lenses, purchases/personnel costs can be allocated across projects, and employees/payroll belong together under one Personnel module.
 - `references/immopilot-convex-polymorphic-allocation-typing.md` — Convex typing lessons for `costAllocations.sourceType/sourceId`, `Pick<QueryCtx, "db">` helper ctx typing, avoiding invalid template-string ID casts, and verifying Convex-specific typecheck before PASS.
+- `references/immopilot-client-feedback-demo-readiness.md` — readiness levels and positioning for internal preview vs first Sobhi/client feedback demo: workflow prototype, not working ERP; minimum path through Fournisseurs/Achats/Paiements/Projet Coûts.
+- `references/immopilot-kanban-github-finalization.md` — repo-changing Kanban finish path for ImmoPilot: review-required handoff, GPT-5.5 PASS, final gates, commit with review summary, push to GitHub, and repo-integrity guardrails.

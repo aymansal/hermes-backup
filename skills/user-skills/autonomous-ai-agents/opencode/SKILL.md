@@ -30,6 +30,10 @@ Use [OpenCode](https://opencode.ai) as an autonomous coding worker orchestrated 
 - Git repository for code tasks (recommended)
 - `pty=true` for interactive TUI sessions
 
+### Hermes OpenCode Go profile workers
+
+When OpenCode is used through Hermes profiles / OpenCode Go rather than the vanilla CLI, a subscription/API-key expiry may show up as a Kanban worker protocol failure (`Agent crashed 3x`, exited without `kanban_complete` / `kanban_block`). Treat this as an Access Key refresh path, not as proof that the code task failed. Store the new key only in `.env`/profile secret files, never in memory/skills/chat summaries, then run a redacted profile smoke test before unblocking or redispatching the worker. For Ayman's Kanban raids, `shadow-mission-orchestration/references/kanban-opencode-go-gate-recovery.md` has the exact recovery sequence.
+
 ## Binary Resolution (Important)
 
 Shell environments may resolve different OpenCode binaries. If behavior differs between your terminal and Hermes, check:

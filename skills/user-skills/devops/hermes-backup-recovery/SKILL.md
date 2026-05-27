@@ -94,6 +94,22 @@ If the user does not want to authenticate GitHub on an untrusted VPS:
 - Or use a fine-grained read-only token scoped to one repo and revoke after use.
 - Or use a read-only deploy key and delete it after use.
 - Avoid making a full recovery vault public if it contains memory/state/config context.
+- If direct `scp` is blocked by separate Tailscale accounts/tailnets, invert the flow: publish a sanitized patch/archive at a controlled URL and have the target VPS `curl -L` it. Do not assume the operator can push files into another tailnet.
+
+## Custom Source / Dashboard Patch Transfers
+When the recovery vault includes a full Hermes source snapshot but the target already ran a safe knowledge-only restore, do not rerun a broad restore just to copy custom UI/code. Instead:
+1. Identify the source-code battle group from the final working Hermes state (dashboard UI, backend APIs, runtime provider, quota/account helpers, gateway footer).
+2. Create one `git diff --binary` patch from the source or recovery-vault snapshot.
+3. Scan the patch for obvious secret formats before sharing.
+4. On the target, create a timestamped tarball backup of `~/.hermes/hermes-agent`.
+5. Run `git apply --check` before `git apply`; stop on conflicts and never force apply.
+6. Verify with `python -m compileall ...` and web build checks where applicable.
+7. Enable related config explicitly (for example Telegram runtime footer fields) and restart services only after verification/approval.
+
+See `references/custom-hermes-dashboard-transfer.md` for the Codex multi-account + quota dashboard transfer pattern.
+
+## GitHub Backup Timestamps
+GitHub folder timestamps show the last commit that changed content under that path, not the last time a backup job inspected it. A daily backup can run successfully while stable folders such as `systemd/` or sanitized `secrets/` still show several days old because their bytes did not change. For freshness, check `backup-manifest.json`, the latest commit, and the paths that matter for the requested artifact (for custom dashboard code, usually `source/`).
 
 ## Common System Alerts
 - **Clone only is not restore:** after `git clone`, run `bash scripts/restore.sh`.

@@ -48,6 +48,25 @@ When Ayman replies `Go` after a proposed next move, execute that move directly a
 - PASS review → run final gates and commit only the reviewed files.
 - narrow blocker → create or perform the smallest same-scope fix and send to re-review.
 
+## Kanban worker protocol salvage
+If a worker is blocked with `worker exited cleanly (rc=0) without calling kanban_complete or kanban_block`, do not assume the task failed. This often means the worker did useful work but missed the Kanban handoff.
+
+Fast salvage sequence:
+
+1. Inspect only the minimal evidence needed:
+   - `hermes kanban --board <board> log <task_id> | tail -160`
+   - `git status --short`
+   - `git diff --stat`
+   - `git ls-files --others --exclude-standard`
+2. If the log shows a final report and the files exist, complete the worker as `review-required handoff`, not PASS.
+3. Start the existing reviewer.
+4. If no usable code exists, reroute or ask for inline authorization.
+
+This preserves momentum without bypassing review discipline.
+
+## Blocked-parent re-review workaround
+If a narrow fix is applied after a review card is `blocked`, a child re-review may stay `todo` because the blocked parent prevents promotion. In that case, create a dispatchable unparented re-review card whose body explicitly references the blocked review ID and the applied fix. After PASS, clean up the stale todo/blocked helper cards before committing.
+
 ## Inline fix exception
 If a Kanban fix card cannot dispatch and the requested fix is tiny, low-risk, and already authorized inline, it is acceptable to patch directly. Still preserve review discipline:
 

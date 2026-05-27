@@ -122,6 +122,7 @@ PY
    - `Credential 429`
    - `Credential 402`
 5. If logs show reactive rotation, verify that reactive path also uses quota-aware selection. A common pitfall is fixing proactive selection only while reactive `429` still uses pool priority / round-robin.
+6. For scheduled Codex warm-up failures, do **not** trust a state-file "done" marker or a subprocess `OK` alone. Fetch live `/usage` for each explicit credential id and compare reset windows against the intended Morocco-time stagger before declaring success. See `references/codex-warmup-false-pass.md`.
 
 ## Patch Pattern
 
@@ -192,8 +193,10 @@ systemd-run --user --unit=hermes-gateway-delayed-restart --on-active=2s /bin/sys
 - **Nearest reset picks a bad account:** check whether the account is stale, below threshold, weekly depleted, or below the 1-hour reset lead-time.
 - **Dashboard selected card differs from runtime:** ensure runtime switch persistence is enabled and dashboard polling refreshes Codex accounts, not quota only.
 - **Reactive 429 ignores quota ranking:** patch `mark_exhausted_and_rotate()`; proactive ranking fixes alone are insufficient.
+- **Warm-up cron says done but only first account reset moved:** treat it as a false PASS. Verify each explicit credential with live `/usage`; the warm-up call should use the target token directly and only mark the slot done after the expected reset window is observed. Do not assume `AIAgent(..., credential_pool=isolated_pool)` forces the target Codex account — the Codex client path may reload/select from the normal pool and still use account #1 for #2/#3 slots.
 - **Deadlock after patch:** likely called `select_codex_by_quota()` while already holding `CredentialPool._lock`. Use quota chooser directly on available entries inside the locked section instead.
 
 ## Reference Notes
 
 - Session-specific implementation detail: `references/reactive-429-min-reset-lead.md`
+- Codex warm-up false PASS and direct-token verification pattern: `references/codex-warmup-false-pass.md`

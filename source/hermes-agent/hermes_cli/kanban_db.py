@@ -2939,10 +2939,20 @@ def _cleanup_workspace(conn: sqlite3.Connection, task_id: str) -> None:
         if kind != "scratch" or not path:
             return
         import shutil
-        wp = Path(path)
-        if wp.is_dir():
-            shutil.rmtree(wp, ignore_errors=True)
-            _log.debug("Removed scratch workspace: %s", wp)
+        wp = Path(path).expanduser()
+        try:
+            resolved_wp = wp.resolve()
+            resolved_root = workspaces_root().resolve()
+            resolved_wp.relative_to(resolved_root)
+        except Exception:
+            _log.warning(
+                "Refusing to remove scratch workspace outside kanban workspaces root: %s",
+                wp,
+            )
+            return
+        if resolved_wp.is_dir():
+            shutil.rmtree(resolved_wp, ignore_errors=True)
+            _log.debug("Removed scratch workspace: %s", resolved_wp)
         # Also kill the tmux session for the worker that owned this task,
         # if the tmux session is now dead (worker process exited).
         _cleanup_worker_tmux(conn, task_id)

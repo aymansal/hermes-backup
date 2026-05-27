@@ -61,6 +61,12 @@ You MUST complete each phase before proceeding to the next.
 
 **BEFORE attempting ANY fix:**
 
+### 0. Report fast on destructive/system incidents
+
+If a repo, service folder, database, or other Core Crystal appears deleted or corrupted, do not disappear into a long investigation before telling the user. Report the observed failure quickly, preserve running processes that may still hold the last usable state, then investigate provenance: what command/task completed near the timestamp, what copied/restored files, and what evidence proves it. Avoid vague language like "it reappeared"; explain the actual source of recovery or say what remains unknown.
+
+
+
 ### 1. Read Error Messages Carefully
 
 - Don't skip past errors or warnings

@@ -12,6 +12,10 @@ metadata:
 
 # Shadow Mission Orchestration
 
+## References
+
+- `references/kanban-scratch-cleanup-recovery.md` — incident pattern for Kanban scratch cleanup deleting a real project directory, recovery provenance, and user-facing explanation rules.
+
 ## Purpose
 
 Use this Skill Rune when Ayman gives a mission that benefits from multiple workers, review loops, research scouts, code implementers, durable task tracking, browser operation, crawling, or scheduled automation.
@@ -20,6 +24,8 @@ Mandatory linked references:
 
 - `references/kanban-review-required-handoff.md` — load/read this when a Kanban worker blocks as `review-required`, freezes at completion, or leaves useful uncommitted work that must be preserved and sent to GPT-5.5 review instead of treated as PASS.
 - `references/kanban-fast-status-heartbeats.md` — load/read this when Ayman asks `Update?`, `Status?`, or similar during a Kanban raid. It encodes the fast heartbeat rule: short status probe only, no long logs/gates/diffs unless he says `Go` or asks for detail.
+- `references/kanban-opencode-go-gate-recovery.md` — load/read this when OpenCode Go worker profiles fail with Kanban protocol violations after an expired/rotated subscription or API key. It captures the redacted `.env` update, profile smoke test, unblock/dispatch, and salvage-review sequence.
+- `references/kanban-repo-integrity-final-gate.md` — load/read this before final gates/commit in Kanban coding raids, especially if workers/reviewers used scratch directories or the dev server may be serving from a deleted/open process. It captures the Git-root/package-manifest integrity checkpoint and recovery stop rule.
 - `references/shadow-agent-model-codex.md` — load/read this before creating Kanban worker profiles or assigning long-running cards. It contains Ayman's universal 90-second Kanban-first rule, OpenCode Go live model roster, task-to-model routing table, and review/iteration doctrine.
 - `references/codex-quota-rotation-ops.md` — load/read this for Hermes Codex/ChatGPT multi-account quota rotation, dashboard quota display, weekly-vs-5h quota gates, Morocco warmup timers, and restart/activation safety.
 - `references/telegram-topic-command-center.md` — load/read this when Ayman wants a Telegram supergroup with many topics as separate Hermes command lanes, topic-specific Skill Rune bindings, or topic-targeted cron/raid delivery.
@@ -240,6 +246,7 @@ For code/system changes, Igris should verify directly when possible:
 - Inspect `git diff`.
 - Run relevant tests or diagnostics.
 - Check logs/ports/status before claiming success.
+- Before final gates/commit, verify the intended repo root and package/workspace manifest still exist. If `git rev-parse --show-toplevel` fails or the manifest is missing, stop finalization and read `references/kanban-repo-integrity-final-gate.md` before any restore/restart action.
 
 ## Re-prompt Loop
 
@@ -292,6 +299,7 @@ Recommended sequence:
 4. Reviewer Shadow checks prompt compliance, bugs, security, style, and tests.
 5. If review fails, Igris creates an iteration/fix card linked from the review and routes it back to the appropriate worker; repeat until PASS or BLOCKED.
 6. Igris Final Gate verifies diffs and tests directly before reporting success.
+7. For Ayman's repo-changing Kanban raids, after GPT-5.5/reviewer PASS: run final gates from the verified repo root, commit with a clear summary/review context, push to GitHub, then report the commit and push result. Do not treat a local-only commit as the finished checkpoint unless Ayman explicitly says not to push.
 
 Do not let an implementer be its own final reviewer.
 Do not assign implementation labor to the `default`/GPT-5.5 General profile just because it exists. For Ayman's raids, GPT-5.5 is reserved for review/commander verification unless he explicitly approves using it for labor; create or reuse an OpenCode Go coding profile first.
@@ -395,5 +403,9 @@ If a worker fails twice on the same task shape, switch model family rather than 
 - Shadow ignores format: re-prompt with exact schema.
 - Shadow changes scope: reject scope creep and narrow the task.
 - Shadow cannot access needed credentials: stop and ask Ayman for Access Keys.
+- OpenCode Go worker exits cleanly without `kanban_complete` / `kanban_block`: treat as a possible Access Gate or worker-protocol issue; read `references/kanban-opencode-go-gate-recovery.md`, refresh `.env` keys only if Ayman provides them, smoke test the profile, then unblock/dispatch or salvage useful output to review.
+- For repo-changing Kanban raids, the General must not treat worker `review-required` or reviewer self-report as final. Promote a valid worker handoff to done, dispatch GPT-5.5 review, then after PASS run final repo integrity checks and gates. If the project doctrine requires GitHub durability, commit with review summary and push to the configured remote. Report the commit hash and pushed branch.
+- Final gates/commit fail with missing `package.json`, missing `pnpm-workspace.yaml`, or `fatal: not a git repository`: stop immediately. Do not claim the card is sealed, do not kill a still-serving dev process, and read `references/kanban-repo-integrity-final-gate.md` before any recovery.
+- Kanban review/fix cards for a real project path must be created with `--workspace dir:/absolute/project/path`, not the default `scratch` workspace. A scratch card with `workspace_path=/home/ubuntu/<project>` can be treated as disposable by cleanup on completion; Hermes has a guardrail now, but orchestration must still classify project repos as `dir`.
 - Kanban used for small task: too much overhead; use delegate_task next time.
 - delegate_task used for long campaign: promote to Kanban raid board.

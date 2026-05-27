@@ -183,6 +183,45 @@ def test_workspace_kind_validation(kanban_home):
         kb.create_task(conn, title="bad ws", workspace_kind="cloud")
 
 
+def test_complete_scratch_task_refuses_to_delete_external_workspace(kanban_home, tmp_path):
+    """Scratch cleanup must never rmtree a real project path by mistake."""
+    project_dir = tmp_path / "real-project"
+    project_dir.mkdir()
+    sentinel = project_dir / "KEEP_ME.txt"
+    sentinel.write_text("core crystal", encoding="utf-8")
+
+    with kb.connect() as conn:
+        tid = kb.create_task(
+            conn,
+            title="bad scratch path",
+            workspace_kind="scratch",
+            workspace_path=str(project_dir),
+        )
+        kb.claim_task(conn, tid)
+        assert kb.complete_task(conn, tid, summary="done")
+
+    assert project_dir.is_dir()
+    assert sentinel.read_text(encoding="utf-8") == "core crystal"
+
+
+def test_complete_scratch_task_deletes_workspace_under_kanban_root(kanban_home):
+    scratch_dir = kb.workspaces_root() / "safe-scratch"
+    scratch_dir.mkdir(parents=True)
+    (scratch_dir / "temp.txt").write_text("discard", encoding="utf-8")
+
+    with kb.connect() as conn:
+        tid = kb.create_task(
+            conn,
+            title="safe scratch path",
+            workspace_kind="scratch",
+            workspace_path=str(scratch_dir),
+        )
+        kb.claim_task(conn, tid)
+        assert kb.complete_task(conn, tid, summary="done")
+
+    assert not scratch_dir.exists()
+
+
 def test_create_task_persists_worktree_branch_name(kanban_home, tmp_path):
     target = tmp_path / ".worktrees" / "t6-wire"
     with kb.connect() as conn:
