@@ -97,6 +97,65 @@ PY
   fi
 }
 
+patch_openai_sdk_none_output() {
+  local python_bin="$HERMES_HOME/hermes-agent/venv/bin/python"
+  [ -x "$python_bin" ] || return 0
+
+  log "Patching OpenAI SDK null-output guard for ChatGPT Codex responses."
+  if [ "$DRY_RUN" = 1 ]; then
+    printf '[dry-run] patch OpenAI SDK response.output None guards under %q\n' "$HERMES_HOME/hermes-agent/venv"
+    return 0
+  fi
+
+  "$python_bin" <<'PY'
+from pathlib import Path
+import importlib.util
+import py_compile
+import time
+
+spec = importlib.util.find_spec("openai")
+if spec is None or not spec.origin:
+    print("[warn] openai package not found; skipping SDK patch")
+    raise SystemExit(0)
+
+root = Path(spec.origin).resolve().parent
+# ChatGPT Codex sometimes emits response.completed events with output=null.
+# OpenAI SDK 2.24.x assumes output is iterable and crashes before Hermes can
+# handle the final response. Patch installed SDK files after pip install.
+targets = [
+    root / "lib" / "_parsing" / "_responses.py",
+    root / "types" / "responses" / "response.py",
+    root / "types" / "responses" / "parsed_response.py",
+]
+replacements = {
+    "for output in response.output:": "for output in (response.output or []):",
+    "for output in self.output:": "for output in (self.output or []):",
+}
+stamp = time.strftime("%Y%m%d_%H%M%S")
+changed = []
+for path in targets:
+    if not path.exists():
+        continue
+    text = path.read_text()
+    new = text
+    for old, replacement in replacements.items():
+        new = new.replace(old, replacement)
+    if new != text:
+        backup = path.with_suffix(path.suffix + f".backup.{stamp}")
+        backup.write_text(text)
+        path.write_text(new)
+        py_compile.compile(str(path), doraise=True)
+        changed.append(str(path))
+
+if changed:
+    print("[restore] Patched OpenAI SDK files:")
+    for item in changed:
+        print(f"  - {item}")
+else:
+    print("[restore] OpenAI SDK null-output guard already present or patterns not found.")
+PY
+}
+
 install_hermes_cli() {
   if [ "$INSTALL_HERMES" != 1 ]; then
     return 0
@@ -255,6 +314,7 @@ if [ "$MODE" = "full" ]; then
 fi
 
 install_hermes_cli
+patch_openai_sdk_none_output
 
 if [ "$SKIP_SYSTEMD" = 0 ] && [ -d "$ROOT/systemd" ]; then
   log "Restoring systemd user units."
