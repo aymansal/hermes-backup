@@ -180,11 +180,27 @@ python3 -c 'from pathlib import Path; p=Path("/absolute/path/to/file"); print("e
 - Prompt changes from `user@host:~$` to `$`: user entered another shell; ask them to `exit` before continuing.
 - `command not found`: either a typo, copied placeholder, or missing binary. Do not persist a rule that the tool is broken; diagnose the specific command.
 
+## Hermes tool access debugging
+
+When Hermes says it cannot use terminal, file, web, or other tools after `hermes tools enable ...`, do not repeat the same generic enable commands. First identify the active platform and session process.
+
+Key lessons:
+- `hermes tools enable NAME` defaults to `--platform cli`; Telegram/gateway sessions need `--platform telegram` too.
+- Tool schemas are snapshotted at session start. After tool/config changes, use `/new` or `/reset`; for gateways, restart the gateway process when needed.
+- Verify `hermes config path` and `HERMES_HOME` before assuming the edited config is the one being used.
+- For one-shot CLI verification, include both `-q` and `-t`, e.g. `hermes chat -q "Use terminal to run pwd" -t terminal,file,web,skills,memory,session_search,delegation,code_execution`.
+- Check both `hermes tools list --platform cli` and `hermes tools list --platform telegram` before declaring the Gate open.
+- If the user already tried the obvious enable commands and is frustrated, switch immediately to an audit/proof command that prints config path, per-platform toolsets, and schema availability.
+
 ## Safety
 
 - Never ask the user to paste secrets into chat.
 - When commands involve credentials, show placeholders or environment variable names only.
 - Confirm before destructive commands: deletion, overwrites, service stops, firewall changes, database operations, or production deploy changes.
+
+## Platform-scope correction pitfall
+
+When the user says they are using terminal/CLI Hermes only, stay on the CLI path. Do not pivot to Telegram, gateway, or platform-gateway fixes unless the user explicitly mentions them. For CLI tool-access issues, inspect the terminal path first: `hermes config path`, `hermes tools list --platform cli`, `platform_toolsets.cli`, `toolsets`, `agent.disabled_toolsets`, and whether `cli.py` is resolving `_get_platform_tools(config, "cli")`. If the user is frustrated, acknowledge the scope correction plainly before giving the next command.
 
 ## References
 

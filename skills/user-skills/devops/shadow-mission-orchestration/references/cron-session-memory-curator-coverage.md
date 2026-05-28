@@ -113,6 +113,16 @@ When curating Holographic memory, apply these quality rules:
 - **Update stale facts.** Facts containing transient data (quota percentages, server PIDs, process states, account counts) that will be wrong within 7 days should be updated to remove the transient part or flagged. Structural information (credential architecture, cron schedule, delivery routing) is durable; numeric state is not.
 - **One-week test.** If the fact will be stale within 7 days, it does not belong in Holographic memory. Flag it for cleanup rather than adding it.
 
+## Practical upgraded script pattern
+
+For Ayman's current no-agent curator script (`~/.hermes/scripts/daily_memory_curator.py`), keep these safeguards when patching:
+
+- Support `--dry-run`, `--backfill-days`, `--max-lookback-days`, `--message-limit`, and `--verbose` so historical scans can be inspected before live writes.
+- Use strict always-reject filters for job IDs, Kanban task IDs, quota/status lines, generated-file/typecheck/build results, vague pronouns like “here/it”, and assistant victory-language such as “Gate is open/alive”.
+- Prefer Holographic `MemoryStore.add_fact()` for live inserts so entities and banks are maintained; keep short direct-SQLite fallback only for reliability.
+- Capture possible Skill Rune/workflow candidates into a proposal file, not as automatic new skills. Ayman should review proposals before new Skill Runes are created.
+- Verify a backfill dry-run manually because old sessions contain many stale task-status summaries that look durable unless filtered aggressively.
+
 ## Patch-and-verify checklist
 
 For this exact class of fix, success means all of these are true:

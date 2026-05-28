@@ -51,6 +51,48 @@ pnpm --filter <web-package> dev --hostname 0.0.0.0 --port <port>
 
 Then re-run the route + CSS probes. Report concrete evidence: route HTTP, CSS HTTP, CSS byte count, and whether expected page text appears.
 
+## Starting an ImmoPilot dev preview on request
+
+When Ayman says he cannot access ImmoPilot and asks to start the server, treat that as approval to start a local dev preview, but still stay read-only first and avoid restart/cache deletion unless separately approved.
+
+Safe sequence:
+
+1. Inspect whether a preview is already listening and whether a dev shadow exists:
+
+```bash
+ss -ltnp | grep -E ':3000|:3001|:5173' || true
+ps aux | grep -E 'next dev|pnpm.*dev|immopilot' | grep -v grep || true
+git status --short
+node -e "const p=require('./apps/web/package.json'); console.log(p.name); console.log(p.scripts)"
+```
+
+2. If no server is listening, start it as a tracked background process from the repo root:
+
+```bash
+pnpm --filter @immopilot/web dev --hostname 0.0.0.0 --port 3000
+```
+
+Use the terminal/process background tracking rather than shell `&`, so the process can be polled or killed later.
+
+3. Verify the port, a representative route, and critical CSS before claiming the Gate is open:
+
+```bash
+ss -ltnp | grep ':3000' || true
+curl -sS -o /tmp/immopilot-preview.html -w 'route HTTP %{http_code}\n' http://127.0.0.1:3000/app/projects
+css=$(python3 - <<'PY'
+from pathlib import Path
+import re
+s=Path('/tmp/immopilot-preview.html').read_text(errors='ignore')
+print((re.findall(r'href="([^"]+\.css[^"]*)"', s) or [''])[0])
+PY
+)
+[ -n "$css" ] && curl -sS -o /tmp/immopilot-preview.css -w 'css HTTP %{http_code} bytes %{size_download}\n' "http://127.0.0.1:3000$css"
+```
+
+4. Return the Tailscale preview link with minimal evidence. For Ayman's VPS, use the known Tailscale host when applicable: `http://100.72.70.121:3000/app/projects`.
+
+If `git status` shows worker changes while a Kanban card is active, report them as active raid traces, not as a blocker to starting the dev server. Do not commit, push, delete `.next`, or restart an existing server unless Ayman explicitly approves that extra action.
+
 ## Temporary outside-Tailscale preview
 
 Ayman prefers temporary tunnels over public firewall ports for non-Tailscale prototype access. If `cloudflared` is installed, use a disposable tunnel and verify it end to end:

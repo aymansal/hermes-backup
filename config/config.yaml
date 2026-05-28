@@ -2,7 +2,7 @@ model:
   base_url: ''
   default: gpt-5.5
   provider: openai-codex
-  credential_id: ''
+  credential_id: <SET_ON_RESTORE>
 providers: {}
 fallback_providers: []
 credential_pool_strategies: {}
@@ -22,22 +22,7 @@ codex_warmup:
   mode: selected_only
   min_remaining_percent: 5
 toolsets:
-- browser
-- clarify
-- code_execution
-- cronjob
-- delegation
-- file
-- image_gen
-- memory
-- messaging
-- session_search
-- skills
-- terminal
-- todo
-- tts
-- vision
-- web
+- hermes-cli
 agent:
   max_turns: 90
   gateway_timeout: 1800
@@ -589,22 +574,6 @@ platform_toolsets:
   - hermes-teams
   telegram:
   - hermes-telegram
-  - browser
-  - clarify
-  - code_execution
-  - cronjob
-  - delegation
-  - file
-  - image_gen
-  - memory
-  - messaging
-  - session_search
-  - skills
-  - terminal
-  - todo
-  - tts
-  - vision
-  - web
   whatsapp:
   - hermes-whatsapp
   yuanbao:

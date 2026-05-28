@@ -92,6 +92,20 @@ systemctl --user enable --now hermes-gateway
 systemctl --user status hermes-gateway --no-pager -n 50
 ```
 
+## Friend VPS full-clone restore
+
+Use this path when the user wants a friend's VPS to receive the working Hermes body + dashboard + brain, while still excluding secrets. The recovery script should not assume that restoring files creates the global `hermes` command. A robust full-clone restore should restore `source/hermes-agent/` and then run the restored installer to create/repair the launcher:
+
+```bash
+bash "$HERMES_HOME/hermes-agent/scripts/install.sh" --skip-setup --dir "$HERMES_HOME/hermes-agent" --hermes-home "$HERMES_HOME"
+source ~/.bashrc 2>/dev/null || true
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+which hermes
+hermes doctor
+```
+
+For friend clones, keep systemd restoration opt-in rather than default, and continue excluding `.env`, `auth.json`, OAuth tokens, Telegram tokens, provider keys, and private keys.
+
 ## Brain pack transfer
 
 Use when the target VPS should inherit the same knowledge without receiving the full secret layer.

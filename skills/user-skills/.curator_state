@@ -1,8 +1,8 @@
 {
-  "last_report_path": null,
+  "last_report_path": "/home/ubuntu/.hermes/logs/curator/20260527-100115",
   "last_run_at": "2026-05-21T14:36:31.645012+00:00",
-  "last_run_duration_seconds": null,
-  "last_run_summary": "deferred first run — curator seeded, will run after one interval; use `hermes curator run --dry-run` to preview now",
+  "last_run_duration_seconds": 88.476563,
+  "last_run_summary": "dry-run auto: no changes; llm: Dry-run completed. I only used read-only skill inspection (`skill_view`) and did **not** mutate the skill library, archive directories, move files, or call `skill_manage`.\n\nI would perform an umbrella-building consolidation rather than pair…",
   "last_run_summary_shown_at": "2026-05-21T14:36:31.645012+00:00",
   "paused": false,
   "run_count": 0
