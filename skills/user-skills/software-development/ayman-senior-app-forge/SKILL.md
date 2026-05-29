@@ -18,6 +18,19 @@ Reference: `references/immopilot-source-records-project-lens-cost-allocation.md`
 
 Use this Skill Rune before planning, reviewing, or implementing serious apps for Ayman: POS, SaaS, ERP, CRM, inventory, dashboards, admin panels, or Moroccan business systems.
 
+### General Architecture Doctrine (absorbed from ai-assisted-app-architecture-forge)
+
+When the mission is not Ayman-specific but involves building any serious app with AI agents, these general principles apply:
+
+- **Architecture before code**: No serious coding starts until the architecture draft exists (stack choice, folder structure, feature boundaries, backend boundary, data model, API/service contract, UI design direction, quality gates).
+- **Reference repos before improvisation**: Use reference repos for structure and pattern inspiration. Never copy proprietary code, secrets, or bad patterns.
+- **Small reviewed cards**: Use Kanban or delegate_task for non-trivial work. Each card should have objective, files allowed/forbidden, acceptance criteria, verification command, reviewer type, status. Workers must not approve their own work.
+- **File size gates**: Route/page files target <300 lines (hard review at 500). Feature components <250 (hard 300). Controller hooks <250 (hard 350). Backend routes <200 (hard 300). Service/domain files <300 (hard 400). Generic utils/supabase/api files must stay small and split by domain early.
+- **Security bans**: No private keys in `NEXT_PUBLIC_*`. No production signing secrets in browser code. No raw secret logging. PINs/passwords hashed, not retrievable.
+- **POS/offline/printing rules**: Critical operations must be server-side or conflict-safe. Offline must be its own subsystem. Printing and hardware code must be isolated.
+
+For the full legacy POS repo review findings that shaped these rules, see `references/ayman-legacy-pos-repo-review.md`.
+
 The goal is to stop AI-generated junior spaghetti by forcing:
 
 - architecture before code

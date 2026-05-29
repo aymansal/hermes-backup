@@ -1,6 +1,6 @@
 ---
 name: kanban-orchestrator
-description: Decomposition playbook + anti-temptation rules for an orchestrator profile routing work through Kanban. The "don't do the work yourself" rule and the basic lifecycle are auto-injected into every kanban worker's system prompt; this skill is the deeper playbook when you're specifically playing the orchestrator role.
+description: Decomposition playbook + anti-temptation rules for an orchestrator profile routing work through Kanban. The "don't do the work yourself" rule and the basic lifecycle are auto-injected into every kanban worker's system prompt; this skill is the deeper playbook when you're specifically playing the orchestrator role. For ImmoPilot payment/TVA/échéancier cards, see references/immopilot-moroccan-promoteur-payment-workflows.md. For product-intent UI pitfalls, see references/product-intent-review-pitfall.md.
 version: 3.0.0
 platforms: [linux, macos, windows]
 metadata:

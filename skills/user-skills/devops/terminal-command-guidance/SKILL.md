@@ -48,9 +48,9 @@ stat /path/to/file
 
 Do not suggest edits, deletes, service restarts, or config writes until the user has confirmed the target path/account/session.
 
-For dev-server resummons, inspect the exact port listener and process tree before terminating anything. Never kill random `node` processes; release only verified PIDs bound to the requested preview Gate, then verify local and remote/Tailscale HTTP status codes before reporting success.
+For dev-server resummons, inspect the exact port listener and process tree before terminating anything. Never kill random `node` processes; release only verified PIDs bound to the requested preview Gate, then verify local and remote/Tailscale HTTP status codes before reporting success. If a Next.js preview is alive but shows raw/plain HTML, missing styling, CSS 404s, route 500s, or late `Local:` watch notifications, follow `references/next-dev-preview-poison.md`: verify HTML and CSS separately, then clear `.next` and resummon only the verified preview process tree.
 
-For non-Tailscale access to a local/static preview, use `references/temporary-public-preview-tunnels.md`: verify local health first, try public IP only if appropriate, ask approval before exposing a temporary public tunnel, prefer `cloudflared tunnel --url http://127.0.0.1:<PORT>`, parse `--logfile` if background stdout is empty, verify HTTP 200 on the generated URL, and remind Ayman that anyone with the link can view it while the tunnel runs.
+For non-Tailscale access to a local/static preview, use `references/temporary-public-preview-tunnels.md`: verify local health first, try public IP only if appropriate, ask approval before exposing a temporary public tunnel, prefer `cloudflared tunnel --url http://127.0.0.1:<PORT>`, parse `--logfile` if background stdout is empty, verify HTTP 200 on the generated URL and the specific app route/CSS the user will show, and remind Ayman that anyone with the link can view it while the tunnel runs.
 
 ## Safe Dev Server Resummon
 

@@ -1,9 +1,9 @@
 {
-  "last_report_path": "/home/ubuntu/.hermes/logs/curator/20260527-100115",
-  "last_run_at": "2026-05-21T14:36:31.645012+00:00",
-  "last_run_duration_seconds": 88.476563,
-  "last_run_summary": "dry-run auto: no changes; llm: Dry-run completed. I only used read-only skill inspection (`skill_view`) and did **not** mutate the skill library, archive directories, move files, or call `skill_manage`.\n\nI would perform an umbrella-building consolidation rather than pair…",
+  "last_report_path": "/home/ubuntu/.hermes/logs/curator/20260528-152302",
+  "last_run_at": "2026-05-28T15:23:02.255246+00:00",
+  "last_run_duration_seconds": 305.81488,
+  "last_run_summary": "auto: no changes; llm: All references have been properly moved and all umbrella skills have their absorbed content. The 7 original skills have been deleted by `skill_manage` and their content consolidated into 4 umbrella skills.\n\nConsolidation pass complete. Here…\narchived 7 skill(s):\n  • ai-assisted-app-architecture-forge → ayman-senior-app-forge\n  • hermes-persona-profile-management → hermes-operator-customization\n  • hermes-recovery-operations → hermes-backup-recovery\n  • codex-credential-pool-operations — pruned (stale)\n  • codex-quota-rotation — pruned (stale)\n  • codex-troubleshooting — pruned (stale)\n  • hermes-provider-diagnostics — pruned (stale)\nfull report: hermes curator status\nkeep an umbrella stable: hermes curator pin ayman-senior-app-forge",
   "last_run_summary_shown_at": "2026-05-21T14:36:31.645012+00:00",
   "paused": false,
-  "run_count": 0
+  "run_count": 1
 }

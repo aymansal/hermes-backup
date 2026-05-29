@@ -31,6 +31,24 @@ GPT review should treat visible no-op buttons/handlers as blockers, even on plac
 
 A visible enabled no-op is not production-serious/data-honest and should route to a same-worker fix card.
 
+## Review gate: no visible HTML entity leakage in UI copy
+
+For ImmoPilot UI cards, especially French/Moroccan ERP copy, review should block visible entity leakage such as `&apos;`, `&amp;apos;`, `&eacute;`, `&mdash;`, or `&nbsp;` when it appears as user-facing text. This often happens when a worker puts HTML entities inside JS prop strings or template strings where React does not decode them.
+
+Pre-review scan:
+
+```bash
+rg "&apos;|&amp;apos;|&eacute;|&mdash;|&nbsp;" apps/web/src
+```
+
+Fix pattern:
+- in JS/TSX string props, use real apostrophes/typographic apostrophes (`d'échéancier` or `d’échéancier`) instead of `&apos;`;
+- in JSX text nodes, prefer readable French text with real characters;
+- do not broaden scope or redesign just to fix copy;
+- rerun gates and route probes before committing.
+
+If GPT blocks only for entity leakage, record the blocked review, create a same-worker copy-fix card, then a dependent GPT re-review card focused on rendered copy and route health.
+
 ## UI worker crash recovery with partial fake data
 
 If a UI worker crashes/protocol-violates after writing files, inspect its log/diff before simply reclaiming. In ImmoPilot, a Kimi UI worker can leave partial components plus `*-placeholder` data containing invented clients, emails, phone numbers, sales, or payment totals. Treat invented business records as a blocker even if the files compile.
@@ -43,22 +61,46 @@ Recovery pattern:
 4. Create a dependent GPT-5.5 review card whose first checklist item is “no fake client/sale/payment records remain.”
 5. Do not commit, preview-promote, or ask Ayman to test the UI until recovery review passes and route/CSS health is verified.
 
+## UI copy entity leakage review gate
+
+For ImmoPilot UI cards, especially French/Moroccan copy inside TSX prop strings or template strings, visible HTML entities are blockers. React does not decode `&apos;` inside JavaScript strings, so users may see `n&amp;apos;a` / `d&amp;apos;échéancier` instead of proper French.
+
+Worker/reviewer checklist:
+- Search newly touched UI files for `&apos;`, `&amp;apos;`, `&eacute;`, and similar entities.
+- In JS/TSX strings, use real apostrophes (`'`) or typographic apostrophes (`’`) rather than HTML entities.
+- Probe rendered HTML for entity leakage before PASS when a visible UI card touched French copy.
+- Treat entity leakage as a product-quality blocker, not cosmetic noise.
+
 ## Next.js dev preview after builds/codegen
 
 For ImmoPilot Next dev previews, `pnpm build` or Convex/codegen work can poison `.next` while `next dev` is running. Symptoms observed:
 
 - previously healthy routes return HTTP 500,
 - generated chunks or CSS go missing,
-- backend-only changes appear to break frontend routes.
+- backend-only changes appear to break frontend routes,
+- route probes hang/time out while a stale `next-server` still owns port 3000.
 
 Recovery pattern after approval for restart/cache clear:
 
 1. stop tracked Next dev processes on port 3000,
-2. `rm -rf apps/web/.next`,
-3. restart with a tracked background process: `pnpm --filter @immopilot/web dev --hostname 0.0.0.0 --port 3000`,
-4. verify every relevant route returns HTTP 200 before commit or before sending a Tailscale link.
+2. if the port remains busy, inspect/kill the stale parent process tree as well as the `next-server` child (`bash -lic ...`, `npm exec`, `sh -c`, `node .../next`, `next-server`, and any `jest-worker/processChild.js` children),
+3. verify port 3000 is clear with `ss -ltnp | grep ':3000' || echo 'port 3000 clear'`,
+4. `rm -rf apps/web/.next`,
+5. restart with a tracked background process: `pnpm --filter @immopilot/web dev --hostname 0.0.0.0 --port 3000`,
+6. verify every relevant route returns HTTP 200 before commit or before sending a Tailscale link.
 
-Do not present a route as test-ready from a mere “Local: Ready” notification; verify with HTTP checks.
+Do not present a route as test-ready from a mere “Local: Ready” notification; verify with HTTP checks. For UI cards, note that final `pnpm build`/Convex codegen can poison the freshly verified dev server again; if a post-build probe fails but gates pass, resummon once more after commit and report the final preview process ID/routes.
+
+## Convex provider-safe frontend read wiring
+
+When wiring ImmoPilot frontend pages to Convex reads, do not rely on `useQuery(..., "skip")` to make a component safe outside `ConvexProvider`. The hook can skip query execution but still requires provider context. For routes that must render honestly when Convex URL/org/provider is not ready, require a structural split:
+
+1. outer route/shell checks provider/org/client readiness using non-Convex-safe context/env hooks only,
+2. if missing, render an honest disconnected/unavailable state and mount no Convex hooks,
+3. only mount the inner query component under a real `ConvexProvider`/`ConvexReactClient` and real org readiness,
+4. keep hooks stable inside the inner component and use skip semantics only for query args that are validly provider-scoped.
+
+Review should probe the disconnected path (for example `/app/sales/test-sale`) and block if it 500s because `useQuery` mounted without provider. This was the key 6.9 blocker: skip alone was insufficient; the fix was an outer/inner component split.
 
 ## Convex generated API cleanliness
 
@@ -111,6 +153,8 @@ Ayman clarified that Sobhi needs TVA as a real input across financial flows, not
 - Project `Coûts` views are lenses over source records + `costAllocations`, with subtotal/TVA/total separation where source records carry tax.
 
 If a running UI card includes price/tax fields before backend support exists, require honest disabled/empty/pending states or a clear handoff note; do not invent persistence.
+
+For ImmoPilot sales/payments work, also load `references/immopilot-moroccan-payment-workflow.md`: use Moroccan promoteur concepts (`avance`, `tranche`, `solde`, `échéancier`), treat incoming payments as receipts against sale TTC, and enforce active payment sums without guessing legacy TVA/TTC.
 
 Financial TVA retrofit sequence to recall after current Epic 6 work:
 
@@ -171,6 +215,22 @@ Do not store or echo Convex deployment values in card summaries; report only tha
 
 For ImmoPilot backend/schema/function cards, do not imply there is new UI for Ayman to visually inspect. If the preview is checked after backend/codegen work, frame it explicitly as a health check for existing routes, not a feature test. Say plainly: “nothing new is visible yet; this card was backend-only.” The next visible checkpoint starts when the relevant UI card begins.
 
+## Moroccan échéancier UI card pattern
+
+When moving from backend payment schedule support to visible UI, create a focused UI worker + GPT-5.5 review pair rather than expanding backend cards. For Epic 6-style work, the default UI surface is `/app/sales/[saleId]` because the échéancier is anchored to the sale TTC contract total.
+
+Worker prompt requirements:
+- Use Moroccan promoteur terms (`échéancier`, `avance`, `tranche`, `solde`, `encaissements`, `TTC`).
+- Show honest unavailable/no-data/legacy-no-TTC states if real sale/schedule/org wiring is not available.
+- Do not invent schedule rows, clients, sales, payments, or amounts to make the screen look full.
+- Add only the new schedule surface and minimal navigation; do not redesign unrelated screens.
+- Treat add-line / record-payment controls as disabled with clear copy unless real mutations are wired; no enabled no-op controls.
+
+Review prompt requirements:
+- Check no USA mortgage-first wording became the default.
+- Check payments are described as receipts against sale TTC and not TVA-generating events.
+- Check route/CSS health after PASS before committing visible UI cards, because Next dev preview may be cache-poisoned by build/codegen.
+
 ## Convex local deployment for codegen gates
 
 If `pnpm exec convex codegen --dry-run --typecheck enable` is blocked only because `CONVEX_DEPLOYMENT` is missing, and the repo is local/dev, the operator may run `pnpm exec convex dev --once` to create an ignored `.env.local` local deployment, then rerun the dry-run codegen gate. Verify `.env.local` is ignored before committing. Do not print or commit Convex secrets/URLs. If codegen updates generated API bindings, include those generated files in review/commit after gates pass.
@@ -191,6 +251,40 @@ Recovery pattern:
 5. Only after recovery review PASS should the General rerun final gates, resummon poisoned preview if needed, verify route/CSS health, then commit/push.
 
 This came up on Epic 6.4 when a Kimi worker hit HTTP 429/provider overload after creating partial client UI files with fake Moroccan client records. The correct recovery was not to preserve the placeholder dataset; it was to create a recovery card requiring honest empty/not-found client UI and no fake financial records.
+
+## Convex read wiring UI cards
+
+When an ImmoPilot UI card wires frontend reads to Convex, require safe query gating before review/commit:
+
+- Inspect the current provider/auth/org stubs before deciding wiring. Do not assume a real organization context exists.
+- Keep React hooks in stable order, but skip Convex queries until all required readiness inputs are valid (provider/client URL, organizationId, parsed IDs, etc.). Use Convex skip semantics or the repo-approved equivalent rather than conditionally calling hooks.
+- If provider/org readiness is missing, render an honest disconnected/no-org state and do not issue invalid queries.
+- Preserve legacy/no-TTC explicit states; never guess old sale totals or default TVA to make a read screen look populated.
+- No financial write mutation UI should be enabled during read-wiring cards.
+
+## Apostrophe/entity leakage review gate for French ERP UI
+
+For ImmoPilot French/Moroccan UI strings, treat visible HTML entity leakage as a blocker, especially in JS prop strings/template strings:
+
+- Do not put `&apos;`, `&amp;apos;`, `&eacute;`, etc. inside strings that React will render as text.
+- Use real French characters/apostrophes (`n’a`, `d’échéancier`, `réservation`) or safe JSX text instead.
+- After UI fixes, grep the newly touched files for `&apos;`, `&amp;apos;`, and similar entities, and probe rendered HTML when possible.
+- This applies even when the feature is otherwise architecturally correct; visible entity leakage makes the ERP look unserious.
+
+## Convex React provider/query gating in UI read-wiring cards
+
+When wiring ImmoPilot UI routes to Convex reads, do not assume `useQuery(..., "skip")` is enough for disconnected/provider-missing states. `skip` avoids executing the query, but the hook still requires a mounted `ConvexProvider` / `ConvexReactClient` context. A route can still 500 if a component calls `useQuery` outside the provider, even with skip args.
+
+Safe pattern for read-wiring cards:
+
+1. Add/verify provider infrastructure at the app shell level.
+2. In the route/page shell, check provider URL/client/org readiness using non-Convex hooks/context/env-safe values only.
+3. If provider/org is missing, render an honest unavailable/disconnected state before mounting any component that calls Convex hooks.
+4. Mount a separate inner query component only when provider + real org readiness are confirmed.
+5. Inside that provider-safe inner component, use `skip` for argument readiness (`saleId`, IDs, filters), but never as the only protection against a missing provider.
+6. Reviewer must probe the disconnected route (for example `/app/sales/test-sale`) and confirm it returns 200 with honest unavailable copy, not 500.
+
+This emerged on ImmoPilot 6.9: the first fix used `useQuery(..., "skip")`, but GPT review correctly blocked because the sale detail route still crashed without ConvexProvider. The accepted fix structurally split outer readiness shell from inner query component.
 
 ## Commit discipline
 

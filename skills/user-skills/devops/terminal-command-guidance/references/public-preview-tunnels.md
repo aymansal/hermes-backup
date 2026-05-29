@@ -85,10 +85,17 @@ grep -Eo 'https://[-a-zA-Z0-9.]+\.trycloudflare\.com' /tmp/<name>-cloudflared.lo
 
 ## Verification
 
+Verify the exact route the user will share, not only `/`. For app previews, also verify the CSS asset because a poisoned Next dev server can return HTML `200` while serving CSS `404` and appearing as plain HTML in the browser.
+
 ```sh
 url="https://...trycloudflare.com"
-curl -L -sS -o /tmp/tunnel-check.html -w '%{http_code}\n' --max-time 20 "$url/"
+curl -L -sS -o /tmp/tunnel-check.html -w '%{http_code}\n' --max-time 20 "$url/app/sales/new"
 wc -c /tmp/tunnel-check.html
+
+css=$(grep -o '/_next/static/css/[^" ]*\.css[^" ]*' /tmp/tunnel-check.html | head -n1 || true)
+if [ -n "$css" ]; then
+  curl -L -sS -o /tmp/tunnel-check.css -w 'css HTTP %{http_code} bytes=%{size_download}\n' --max-time 20 "$url$css"
+fi
 ```
 
 Optionally inspect the downloaded HTML for an expected product marker, without printing secrets:

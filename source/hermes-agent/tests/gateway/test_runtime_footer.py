@@ -184,7 +184,7 @@ def test_format_footer_quota_uses_configured_timezone():
         },
         quota_timezone="Africa/Casablanca",
     )
-    assert out == "5h 46% left reset 22:44"
+    assert out == "5h 46% left reset Fri 22:44"
 
 
 def test_format_footer_quota_skips_unavailable():

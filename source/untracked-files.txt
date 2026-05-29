@@ -1,7 +1,2 @@
 .analysis/protocol_violation_loop.md
-agent/codex_quota.py
-tests/agent/test_codex_quota_rotation.py
-tests/hermes_cli/test_codex_account_selection_dashboard.py
-tests/hermes_cli/test_dashboard_codex_labels.py
-tests/scripts/test_codex_quota_warmup_helpers.py
 tools/approval.py.bak.20260521T235258Z.approval-token-fix

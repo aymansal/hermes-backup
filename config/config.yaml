@@ -194,8 +194,8 @@ auxiliary:
     - provider: opencode-go
       model: deepseek-v4-flash
   compression:
-    provider: auto
-    model: ''
+    provider: opencode-go
+    model: deepseek-v4-flash
     base_url: ''
     api_key: <SET_ON_RESTORE>
     timeout: 180
@@ -223,15 +223,15 @@ auxiliary:
     - provider: opencode-go
       model: glm-5
   mcp:
-    provider: auto
-    model: ''
+    provider: opencode-go
+    model: glm-5.1
     base_url: ''
     api_key: <SET_ON_RESTORE>
     timeout: 30
     extra_body: {}
   title_generation:
-    provider: auto
-    model: ''
+    provider: opencode-go
+    model: glm-5.1
     base_url: ''
     api_key: <SET_ON_RESTORE>
     timeout: 30
@@ -261,8 +261,8 @@ auxiliary:
     timeout: 60
     extra_body: {}
   curator:
-    provider: auto
-    model: ''
+    provider: opencode-go
+    model: glm-5.1
     base_url: ''
     api_key: <SET_ON_RESTORE>
     timeout: 600

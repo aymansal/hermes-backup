@@ -161,12 +161,13 @@ Workflow discipline:
 For Ayman’s current preference, the intended role split is:
 
 - compression: cheap huge-context model, preferably OpenCode Go `deepseek-v4-flash` if live verification confirms it is served.
-- curator/background memory: judgment model, OpenCode Go `glm-5.1` with `glm-5` fallback.
+- curator/background skill review: high-judgment path; Ayman wants this moved off OpenCode Go `glm-5.1` toward DeepSeek V4 Pro with explicit `xhigh` reasoning. Prefer the native `deepseek` provider if available because Hermes maps `xhigh`/`max` to DeepSeek `reasoning_effort: max`; do not assume generic OpenCode Go sends the same payload without verification.
+- daily Holographic Memory Curator cron: if it is `no_agent: true`, it uses no model and no reasoning effort. Keep deterministic unless explicitly redesigned into an LLM-backed proposal/review job.
 - web/doc extraction: long structured summaries, OpenCode Go `kimi-k2.6` with `kimi-k2.5` fallback.
 - approval/safety: judgment model is preferred, but verify the actual Hermes approval path because small hardcoded token budgets can break reasoning-heavy models.
 - title generation/tiny metadata: prefer a fast model that returns final `content` without spending the whole budget in `reasoning_content`; in live OpenCode Go tests `minimax-m2.7` and `qwen3.5-plus` behaved better than `deepseek-v4-flash` for real title generation.
 
-See `references/opencode-go-auxiliary-routing.md` for the detailed inspection pattern, known Hermes v0.14.0 OpenCode Go model list, draft config shape, Access Key activation pitfalls, smoke-test commands, reasoning-content pitfalls, and quota-warning caveat. A reusable smoke-test helper lives at `scripts/test_auxiliary_routing.py`.
+See `references/opencode-go-auxiliary-routing.md` for the detailed inspection pattern, known Hermes v0.14.0 OpenCode Go model list, draft config shape, Access Key activation pitfalls, smoke-test commands, reasoning-content pitfalls, and quota-warning caveat. See `references/curator-model-routing.md` for the curator-specific lesson: verify built-in Skill Curator separately from no-agent memory-curator cron, and prefer native DeepSeek when requiring `xhigh`/max thinking. A reusable smoke-test helper lives at `scripts/test_auxiliary_routing.py`.
 
 Access Key handling for Ayman: he considers his Tailscale-protected Hermes chat acceptable for sharing Access Keys and prefers non-alarmist handling. Still do not echo, log, or store secrets in memory/skills. If he provides an Access Key as part of an approved Hermes provider-routing change, write it to the requested `.env`/config target as part of the setup instead of treating it as missing later; verify by active-env presence/length/status only.
 
@@ -381,6 +382,20 @@ The user wants direct, tactical execution under his command authority:
 - Do not frame yourself as the decision-maker; the Shadow System Operator/General executes the Shadow Monarch's decisions.
 
 Use Shadow System Operator flavor sparingly: practical report first, flavor second.
+
+## Persona & Operator Profile Management (absorbed from hermes-persona-profile-management)
+
+When the user asks to update, inspect, or troubleshoot Hermes' persona/soul or operator profile files, do not confuse memory summaries with actual config artifacts. The core distinction:
+
+- `~/.hermes/SOUL.md` = assistant persona and behavior
+- `~/.hermes/memories/USER.md` = compact active profile loaded into context
+- `~/.hermes/OPERATOR_PROFILE.md` = long-form detailed dossier
+
+**Critical pitfall**: If the user asks to update a file/config, change the actual artifact and verify. A memory-only update after a file/config request is a failed mission. Always verify with `wc -l <file>` and `head -5 <file>`.
+
+When overwriting a large existing profile, confirm unless the user clearly requested replacement. Never print or store secrets in persona/profile files.
+
+See `references/shadow-operator-profile-session.md` for the session-specific lesson that motivated this discipline.
 
 ## References
 
