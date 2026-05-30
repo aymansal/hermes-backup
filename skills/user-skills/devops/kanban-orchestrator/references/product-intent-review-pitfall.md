@@ -29,6 +29,9 @@ Before PASS, verify:
 - there is no disabled/read-only substitute standing in for the removed field
 - internal defaults are not arbitrary user input
 - the implementation matches the product intent, not only data-safety minimums
+- the served preview HTML for the exact route does not contain the removed label, placeholder, or standalone substitute value (for example `Devise`, `placeholder="MAD"`, or a standalone `MAD` form row)
+
+If a reviewer returns PASS but the user points out an intent mismatch, treat the PASS as superseded by product correction: open a same-worker fix loop immediately, update the review prompt to encode the corrected intent explicitly, and do not commit the narrow implementation.
 
 ## Example
 For Moroccan ImmoPilot sale forms:

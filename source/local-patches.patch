@@ -1176,6 +1176,203 @@ index 9a5cc20fe..ca752d843 100644
              if next_entry:
                  _next_label = next_entry.label or next_entry.id[:8]
                  logger.info("credential pool: rotated to %s", _next_label)
+diff --git a/cron/jobs.py b/cron/jobs.py
+index 6d7845c49..848be8fcb 100644
+--- a/cron/jobs.py
++++ b/cron/jobs.py
+@@ -16,7 +16,7 @@ import re
+ import uuid
+ from datetime import datetime, timedelta
+ from pathlib import Path
+-from hermes_constants import get_hermes_home
++from hermes_constants import VALID_REASONING_EFFORTS, get_hermes_home
+ from typing import Optional, Dict, List, Any, Union
+ 
+ logger = logging.getLogger(__name__)
+@@ -79,6 +79,26 @@ def _coerce_job_text(value: Any, fallback: str = "") -> str:
+     return str(value)
+ 
+ 
++def _normalize_reasoning_effort(value: Any) -> Optional[str]:
++    """Normalize a per-job reasoning effort override.
++
++    ``None``/empty clears the override so scheduler falls back to the global
++    ``agent.reasoning_effort``.  Valid values mirror the slash command/global
++    config surface: ``none`` plus ``VALID_REASONING_EFFORTS``.
++    """
++    if value is None or value is False:
++        return None
++    text = str(value).strip().lower()
++    if not text:
++        return None
++    if text == "none" or text in VALID_REASONING_EFFORTS:
++        return text
++    raise ValueError(
++        "Invalid reasoning_effort for cron job: "
++        f"{value!r}. Expected one of: none, {', '.join(VALID_REASONING_EFFORTS)}."
++    )
++
++
+ def _schedule_display_for_job(job: Dict[str, Any]) -> str:
+     display = _coerce_job_text(job.get("schedule_display")).strip()
+     if display:
+@@ -131,6 +151,10 @@ def _normalize_job_record(job: Dict[str, Any]) -> Dict[str, Any]:
+     profile = _coerce_job_text(normalized.get("profile")).strip()
+     normalized["profile"] = profile or None
+ 
++    normalized["reasoning_effort"] = _normalize_reasoning_effort(
++        normalized.get("reasoning_effort")
++    )
++
+     return normalized
+ 
+ 
+@@ -524,6 +548,7 @@ def create_job(
+     workdir: Optional[str] = None,
+     profile: Optional[str] = None,
+     no_agent: bool = False,
++    reasoning_effort: Optional[str] = None,
+ ) -> Dict[str, Any]:
+     """
+     Create a new cron job.
+@@ -573,6 +598,8 @@ def create_job(
+                 and deliver its stdout directly. Empty stdout = silent (no
+                 delivery). Requires ``script`` to be set. Ideal for classic
+                 watchdogs and periodic alerts that don't need LLM reasoning.
++        reasoning_effort: Optional per-job reasoning override (none, minimal,
++                low, medium, high, xhigh). Ignored when ``no_agent=True``.
+ 
+     Returns:
+         The created job dict
+@@ -608,6 +635,7 @@ def create_job(
+     normalized_workdir = _normalize_workdir(workdir)
+     normalized_profile = _normalize_profile(profile)
+     normalized_no_agent = bool(no_agent)
++    normalized_reasoning_effort = _normalize_reasoning_effort(reasoning_effort)
+ 
+     # no_agent jobs are meaningless without a script — the script IS the job.
+     # Surface this as a clear ValueError at create time so bad configs never
+@@ -662,6 +690,7 @@ def create_job(
+         "enabled_toolsets": normalized_toolsets,
+         "workdir": normalized_workdir,
+         "profile": normalized_profile,
++        "reasoning_effort": normalized_reasoning_effort,
+     }
+ 
+     jobs = load_jobs()
+@@ -751,6 +780,11 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
+             else:
+                 updates["profile"] = _normalize_profile(_profile)
+ 
++        if "reasoning_effort" in updates:
++            updates["reasoning_effort"] = _normalize_reasoning_effort(
++                updates["reasoning_effort"]
++            )
++
+         updated = _apply_skill_fields({**job, **updates})
+         schedule_changed = "schedule" in updates
+ 
+diff --git a/cron/scheduler.py b/cron/scheduler.py
+index e76f67064..7e1fa6525 100644
+--- a/cron/scheduler.py
++++ b/cron/scheduler.py
+@@ -29,7 +29,7 @@ except ImportError:
+     except ImportError:
+         msvcrt = None
+ from pathlib import Path
+-from typing import List, Optional
++from typing import Any, Dict, List, Optional
+ 
+ # Add parent directory to path for imports BEFORE repo-level imports.
+ # Without this, standalone invocations (e.g. after `hermes update` reloads
+@@ -1416,14 +1416,17 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+         model = job.get("model") or os.getenv("HERMES_MODEL") or ""
+ 
+         # Load config.yaml for model, reasoning, prefill, toolsets, provider routing
+-        _cfg = {}
++        _cfg: Dict[str, Any] = {}
+         try:
+             import yaml
+             _cfg_path = str(_get_hermes_home() / "config.yaml")
+             if os.path.exists(_cfg_path):
+                 with open(_cfg_path, encoding="utf-8") as _f:
+-                    _cfg = yaml.safe_load(_f) or {}
+-                _cfg = _expand_env_vars(_cfg)
++                    loaded_cfg = _expand_env_vars(yaml.safe_load(_f) or {})
++                if isinstance(loaded_cfg, dict):
++                    _cfg = loaded_cfg
++                else:
++                    _cfg = {}
+                 _model_cfg = _cfg.get("model", {})
+                 if not job.get("model"):
+                     if isinstance(_model_cfg, str):
+@@ -1442,9 +1445,13 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+         except Exception:
+             pass
+ 
+-        # Reasoning config from config.yaml
++        # Reasoning config: per-job override wins; otherwise use config.yaml.
+         from hermes_constants import parse_reasoning_effort
+-        effort = str(_cfg.get("agent", {}).get("reasoning_effort", "")).strip()
++        job_effort = str(job.get("reasoning_effort") or "").strip()
++        agent_cfg = _cfg.get("agent", {}) if isinstance(_cfg, dict) else {}
++        if not isinstance(agent_cfg, dict):
++            agent_cfg = {}
++        effort = job_effort or str(agent_cfg.get("reasoning_effort", "")).strip()
+         reasoning_config = parse_reasoning_effort(effort)
+ 
+         # Prefill messages from env or config.yaml
+@@ -1513,7 +1520,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+             message = format_runtime_provider_error(exc)
+             raise RuntimeError(message) from exc
+ 
+-        fallback_model = _cfg.get("fallback_providers") or _cfg.get("fallback_model") or None
++        fallback_model: Any = _cfg.get("fallback_providers") or _cfg.get("fallback_model") or None
+         credential_pool = None
+         runtime_provider = str(runtime.get("provider") or "").strip().lower()
+         if runtime_provider:
+@@ -1552,6 +1559,19 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+                 job_id, _mcp_exc,
+             )
+ 
++        cron_enabled_toolsets = _resolve_cron_enabled_toolsets(job, _cfg)
++        cron_memory_enabled = bool(
++            cron_enabled_toolsets and "memory" in set(cron_enabled_toolsets)
++        )
++        logger.info(
++            "Job '%s': agent model=%s provider=%s reasoning_effort=%s memory_tools=%s",
++            job_id,
++            model,
++            runtime.get("provider"),
++            effort or "default",
++            cron_memory_enabled,
++        )
++
+         agent = AIAgent(
+             model=model,
+             api_key=runtime.get("api_key"),
+@@ -1570,7 +1590,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+             providers_order=pr.get("order"),
+             provider_sort=pr.get("sort"),
+             openrouter_min_coding_score=(_cfg.get("openrouter") or {}).get("min_coding_score"),
+-            enabled_toolsets=_resolve_cron_enabled_toolsets(job, _cfg),
++            enabled_toolsets=cron_enabled_toolsets,
+             disabled_toolsets=["cronjob", "messaging", "clarify"],
+             quiet_mode=True,
+             # Cron jobs should always inherit the user's SOUL.md identity from
+@@ -1579,7 +1599,11 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+             # Without a workdir, keep cwd context discovery disabled.
+             skip_context_files=not bool(_job_workdir),
+             load_soul_identity=True,
+-            skip_memory=True,  # Cron system prompts would corrupt user representations
++            # Normal cron runs skip memory injection/writes to avoid scheduled
++            # prompts corrupting user representations. Jobs that explicitly
++            # enable the memory toolset are curation jobs and need the memory
++            # provider loaded so fact_store/memory writes are available.
++            skip_memory=not cron_memory_enabled,
+             platform="cron",
+             session_id=_cron_session_id,
+             session_db=_session_db,
 diff --git a/gateway/run.py b/gateway/run.py
 index cca9901cb..be8c8078f 100644
 --- a/gateway/run.py
@@ -3132,6 +3329,126 @@ index bcb1ed595..447dc07ef 100644
 +    # The only credential id is the selected one from cached metadata
 +    assert "selected_credential_id" in result
 +    assert result["selected_credential_id"] == "unused-cred"
+diff --git a/tests/cron/test_jobs.py b/tests/cron/test_jobs.py
+index 16c56cd62..c9b0d9574 100644
+--- a/tests/cron/test_jobs.py
++++ b/tests/cron/test_jobs.py
+@@ -254,6 +254,16 @@ class TestJobCRUD:
+         job = create_job(prompt="Test", schedule="30m")
+         assert job["deliver"] == "local"
+ 
++    def test_create_job_stores_per_job_reasoning_effort(self, tmp_cron_dir):
++        job = create_job(
++            prompt="Review memory candidates",
++            schedule="every 1d",
++            reasoning_effort="xhigh",
++        )
++
++        assert job["reasoning_effort"] == "xhigh"
++        assert get_job(job["id"])["reasoning_effort"] == "xhigh"
++
+ 
+ class TestUpdateJob:
+     def test_update_name(self, tmp_cron_dir):
+@@ -296,6 +306,26 @@ class TestUpdateJob:
+         fetched = get_job(job["id"])
+         assert fetched["enabled"] is False
+ 
++    def test_update_reasoning_effort(self, tmp_cron_dir):
++        job = create_job(prompt="Review memory candidates", schedule="every 1d")
++
++        updated = update_job(job["id"], {"reasoning_effort": "xhigh"})
++
++        assert updated["reasoning_effort"] == "xhigh"
++        assert get_job(job["id"])["reasoning_effort"] == "xhigh"
++
++    def test_update_reasoning_effort_empty_clears(self, tmp_cron_dir):
++        job = create_job(
++            prompt="Review memory candidates",
++            schedule="every 1d",
++            reasoning_effort="xhigh",
++        )
++
++        updated = update_job(job["id"], {"reasoning_effort": ""})
++
++
++        assert updated["reasoning_effort"] is None
++
+     def test_update_nonexistent_returns_none(self, tmp_cron_dir):
+         result = update_job("nonexistent_id", {"name": "X"})
+         assert result is None
+diff --git a/tests/cron/test_scheduler.py b/tests/cron/test_scheduler.py
+index 32485a917..b1397a43a 100644
+--- a/tests/cron/test_scheduler.py
++++ b/tests/cron/test_scheduler.py
+@@ -1006,6 +1006,67 @@ class TestRunJobSessionPersistence:
+         kwargs = mock_agent_cls.call_args.kwargs
+         assert kwargs["enabled_toolsets"] == ["web", "terminal", "file"]
+ 
++    def test_run_job_per_job_reasoning_effort_overrides_global_config(self, tmp_path):
++        job = {
++            "id": "reasoning-job",
++            "name": "reasoning test",
++            "prompt": "review memory candidates",
++            "reasoning_effort": "xhigh",
++        }
++        fake_db, patches = self._make_run_job_patches(tmp_path)
++        config_path = tmp_path / "config.yaml"
++        config_path.write_text("agent:\n  reasoning_effort: medium\n", encoding="utf-8")
++
++        with patches[0], patches[1], patches[2], patches[3], patches[4], \
++             patch("run_agent.AIAgent") as mock_agent_cls:
++            mock_agent = MagicMock()
++            mock_agent.run_conversation.return_value = {"final_response": "ok"}
++            mock_agent_cls.return_value = mock_agent
++            run_job(job)
++
++        kwargs = mock_agent_cls.call_args.kwargs
++        assert kwargs["reasoning_config"] == {"enabled": True, "effort": "xhigh"}
++
++    def test_run_job_memory_toolset_enables_memory_provider(self, tmp_path):
++        job = {
++            "id": "memory-curator-job",
++            "name": "memory curator",
++            "prompt": "review memory candidates",
++            "enabled_toolsets": ["memory"],
++        }
++        fake_db, patches = self._make_run_job_patches(tmp_path)
++
++        with patches[0], patches[1], patches[2], patches[3], patches[4], \
++             patch("run_agent.AIAgent") as mock_agent_cls:
++            mock_agent = MagicMock()
++            mock_agent.run_conversation.return_value = {"final_response": "ok"}
++            mock_agent_cls.return_value = mock_agent
++            run_job(job)
++
++        kwargs = mock_agent_cls.call_args.kwargs
++        assert kwargs["enabled_toolsets"] == ["memory"]
++        assert kwargs["skip_memory"] is False
++
++    def test_run_job_falls_back_to_global_reasoning_when_job_unset(self, tmp_path):
++        job = {
++            "id": "global-reasoning-job",
++            "name": "reasoning test",
++            "prompt": "review memory candidates",
++        }
++        fake_db, patches = self._make_run_job_patches(tmp_path)
++        config_path = tmp_path / "config.yaml"
++        config_path.write_text("agent:\n  reasoning_effort: high\n", encoding="utf-8")
++
++        with patches[0], patches[1], patches[2], patches[3], patches[4], \
++             patch("run_agent.AIAgent") as mock_agent_cls:
++            mock_agent = MagicMock()
++            mock_agent.run_conversation.return_value = {"final_response": "ok"}
++            mock_agent_cls.return_value = mock_agent
++            run_job(job)
++
++        kwargs = mock_agent_cls.call_args.kwargs
++        assert kwargs["reasoning_config"] == {"enabled": True, "effort": "high"}
++
+     def test_run_job_enabled_toolsets_resolves_from_platform_config_when_not_set(self, tmp_path):
+         """When a job has no explicit enabled_toolsets, the scheduler now
+         resolves them from ``hermes tools`` platform config for ``cron``
 diff --git a/tests/gateway/test_runtime_footer.py b/tests/gateway/test_runtime_footer.py
 index 9c36706f7..7b0463a12 100644
 --- a/tests/gateway/test_runtime_footer.py
@@ -4192,6 +4509,62 @@ index bfc70cd0f..e47a27ab0 100644
          )
  
          answer = (response.choices[0].message.content or "").strip().upper()
+diff --git a/tools/cronjob_tools.py b/tools/cronjob_tools.py
+index 4e46523a9..799539832 100644
+--- a/tools/cronjob_tools.py
++++ b/tools/cronjob_tools.py
+@@ -305,6 +305,7 @@ def _format_job(job: Dict[str, Any]) -> Dict[str, Any]:
+         "model": job.get("model"),
+         "provider": job.get("provider"),
+         "base_url": job.get("base_url"),
++        "reasoning_effort": job.get("reasoning_effort"),
+         "schedule": job.get("schedule_display") or "?",
+         "repeat": _repeat_display(job),
+         "deliver": job.get("deliver", "local"),
+@@ -351,6 +352,7 @@ def cronjob(
+     workdir: Optional[str] = None,
+     profile: Optional[str] = None,
+     no_agent: Optional[bool] = None,
++    reasoning_effort: Optional[str] = None,
+     task_id: str = None,
+ ) -> str:
+     """Unified cron job management tool."""
+@@ -418,6 +420,7 @@ def cronjob(
+                 workdir=_normalize_optional_job_value(workdir),
+                 profile=_normalize_optional_job_value(profile),
+                 no_agent=_no_agent,
++                reasoning_effort=_normalize_optional_job_value(reasoning_effort),
+             )
+             return json.dumps(
+                 {
+@@ -569,6 +572,8 @@ def cronjob(
+                             success=False,
+                         )
+                 updates["no_agent"] = target_no_agent
++            if reasoning_effort is not None:
++                updates["reasoning_effort"] = _normalize_optional_job_value(reasoning_effort)
+             if repeat is not None:
+                 # Normalize: treat 0 or negative as None (infinite)
+                 normalized_repeat = None if repeat <= 0 else repeat
+@@ -668,6 +673,10 @@ Important safety rule: cron-run sessions should not recursively schedule more cr
+                 "type": "string",
+                 "description": f"Optional path to a script that runs each tick. In the default mode its stdout is injected into the agent's prompt as context (data-collection / change-detection pattern). With no_agent=True, the script IS the job and its stdout is delivered verbatim (classic watchdog pattern). Relative paths resolve under {display_hermes_home()}/scripts/. ``.sh``/``.bash`` extensions run via bash, everything else via Python. On update, pass empty string to clear."
+             },
++            "reasoning_effort": {
++                "type": "string",
++                "description": "Optional per-job reasoning override for agent cron runs: none, minimal, low, medium, high, or xhigh. Overrides agent.reasoning_effort from config.yaml for this job only. Ignored when no_agent=True. On update, pass empty string to clear."
++            },
+             "no_agent": {
+                 "type": "boolean",
+                 "default": False,
+@@ -768,6 +777,7 @@ registry.register(
+         workdir=args.get("workdir"),
+         profile=args.get("profile"),
+         no_agent=args.get("no_agent"),
++        reasoning_effort=args.get("reasoning_effort"),
+         task_id=kw.get("task_id"),
+     ))(),
+     check_fn=check_cronjob_requirements,
 diff --git a/web/src/components/OAuthLoginModal.tsx b/web/src/components/OAuthLoginModal.tsx
 index f4eb610c1..2a2b626e6 100644
 --- a/web/src/components/OAuthLoginModal.tsx

@@ -75,8 +75,17 @@ Network access is required for first-time fetches.
 
 Study patterns, do not loot blindly.
 
+For ImmoPilot, use a **doctrine-first workflow before reference-repo inspiration or feature coding**:
+
+1. Read the local product doctrine first (`docs/doctrine/IMMOPILOT_MVP_SCOPE.md`, `IMMOPILOT_CONVEX_SCHEMA_BLUEPRINT.md`, screen/epic/UI/quality gate docs as relevant).
+2. If the user expresses concern that the product feels incomplete, fragile, or like "AI-sludge", stop feature work and run a read-only product gap audit against doctrine before creating more build cards.
+3. Convert audit findings into small reviewable cards. Do not jump from audit directly into a giant module.
+4. Use reference repos only after doctrine establishes the product truth and the card scope.
+5. Preserve Moroccan promoteur ERP semantics: documents/uploads, bons de livraison, purchases, supplier payments, cost allocation, and dashboard truth are core ERP modules, not polish.
+
 Correct use:
 
+- Inspect local doctrine before coding or referencing external repos.
 - Inspect folder structure.
 - Learn naming conventions.
 - Learn component composition.
@@ -87,6 +96,7 @@ Correct use:
 
 Incorrect use:
 
+- Continue feature coding when the user is questioning product completeness.
 - Copy large files directly.
 - Pull in irrelevant complexity.
 - Import another repo's business model without adapting it.
@@ -567,7 +577,12 @@ First tenant/client: Sobhi Immobilier.
 Tenant key: organizationId.
 Do not hardcode Sobhi into product identity, routes, package names, table names, generic components, or shared helpers.
 
-Before coding, inspect these reference repos with opensrc:
+Doctrine-first step, before coding:
+- Read the relevant local docs/doctrine files and cite the exact files/sections used.
+- If the feature touches documents, BL, finance, purchases, payments, tenancy, audit, or dashboard truth, explicitly state the doctrine-backed scope and non-goals.
+- If the product feels incomplete or scope is uncertain, stop and perform/read a product gap audit before implementation.
+
+Before coding, inspect these reference repos with opensrc only after doctrine scope is clear:
 - <repo 1>: learn <specific pattern>
 - <repo 2>: learn <specific pattern>
 - <repo 3>: learn <specific pattern>
@@ -576,7 +591,7 @@ Rules:
 - Do not copy large code blocks directly.
 - Study architecture, naming, validation, component structure, and data flow.
 - Write original project-specific code matching our ERP blueprint.
-- Cite the exact reference files/folders you inspected.
+- Cite the exact doctrine files and reference files/folders you inspected.
 - Keep MVP scope tight.
 - Add tests or verification steps where practical.
 ```
@@ -617,15 +632,19 @@ Rules:
 
 3. **Overfitting to reference architecture.** Our ERP has its own hierarchy and allocation engine. Do not import unrelated SaaS complexity.
 
-4. **Skipping the blueprint.** Reference repos are support material; the `real_estate_promoteur_app_blueprint.md` remains the product truth.
+4. **Skipping the blueprint.** Reference repos are support material; the local ImmoPilot doctrine under `docs/doctrine/` remains the product truth. If the user says the app feels incomplete, missing core modules, or at risk of AI-sludge, do not keep coding the next feature. Run a read-only doctrine gap audit, rank gaps by business importance, then create small backend-first cards.
 
-5. **Copying code without license review.** Study first. Copy only with clear license compatibility and a reason.
+5. **Treating documents or bons de livraison as polish.** For Moroccan promoteur ERP, documents/uploads and BL are evidence spine modules for contracts, CIN, invoices, payment proofs, plans, chantier delivery, purchases, and audit. Build metadata and ownership rules before upload UI.
 
-6. **Ignoring version-specific dependencies.** Use `opensrc path --cwd "$PROJECT_DIR" <package>` once the ERP repo exists so agents inspect the exact installed package version.
+6. **Copying code without license review.** Study first. Copy only with clear license compatibility and a reason.
+
+7. **Ignoring version-specific dependencies.** Use `opensrc path --cwd "$PROJECT_DIR" <package>` once the ERP repo exists so agents inspect the exact installed package version.
 
 ## Reference Files
 
 - `references/core-pack-fetch-2026-05-23.md` — session fetch record for the already-cached core MVP reference pack, including cache paths, size, verification commands, and lessons about shallow cache size.
+- `references/immopilot-doctrine-first-gap-audit-2026-05-30.md` — doctrine-first read-only gap audit pattern for when ImmoPilot feels incomplete or at risk of AI-sludge; includes module map, output shape, and recommended card sequence.
+- `references/immopilot-document-metadata-safety-2026-05-30.md` — backend safety checklist for document metadata cards: entity ownership validation on create/list/get/archive/delete, safe rejection of `other`/`deliveryNote`, permissions, audit, and sequencing before upload UI.
 
 ## Verification Checklist
 

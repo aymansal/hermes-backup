@@ -43,6 +43,26 @@ http://<PUBLIC_IP>:<PORT>/
 
 If it fails, the cloud firewall/security list is likely blocking the public port even though the local service is alive.
 
+## Local Next/Turborepo preview before tunnel
+
+For pnpm workspace Next apps, start the preview with package filter arguments passed directly to the script. Do **not** insert an extra `--` after `dev`; with Next 15 this can be interpreted as a project directory named `--hostname`:
+
+```sh
+# Good
+pnpm --filter @immopilot/web dev --hostname 0.0.0.0 --port 3000
+
+# Bad: may fail with "Invalid project directory provided ... /apps/web/--hostname"
+pnpm --filter @immopilot/web dev -- --hostname 0.0.0.0 --port 3000
+```
+
+Before exposing through Cloudflare, probe local routes and CSS:
+
+```sh
+curl -sS -o /tmp/local-page.html -w 'page HTTP %{http_code} bytes=%{size_download}\n' --max-time 20 http://127.0.0.1:<PORT>/app/payments/new
+css=$(grep -o '/_next/static/css/[^" ]*\.css[^" ]*' /tmp/local-page.html | head -n1 || true)
+[ -n "$css" ] && curl -sS -o /tmp/local.css -w 'css HTTP %{http_code} bytes=%{size_download}\n' --max-time 20 "http://127.0.0.1:<PORT>$css"
+```
+
 ## Cloudflared quick tunnel pattern
 
 Install only after approval. Choose the package matching architecture:
@@ -90,13 +110,32 @@ Verify the exact route the user will share, not only `/`. For app previews, also
 ```sh
 url="https://...trycloudflare.com"
 curl -L -sS -o /tmp/tunnel-check.html -w '%{http_code}\n' --max-time 20 "$url/app/sales/new"
-wc -c /tmp/tunnel-check.html
+## Verification
 
+Verify the exact route the user will share, not only `/`, and verify CSS/assets through the tunnel. A page can return HTTP 200 but look like raw HTML if the local Next dev server is serving stale HTML with missing `/_next/static/css/...` assets.
+
+```sh
+url="https://...trycloudflare.com"
+route="/app/sales/new"
+curl -L -sS -o /tmp/tunnel-check.html -w 'page HTTP %{http_code} bytes=%{size_download}\n' --max-time 20 "$url$route"
+wc -c /tmp/tunnel-check.html
 css=$(grep -o '/_next/static/css/[^" ]*\.css[^" ]*' /tmp/tunnel-check.html | head -n1 || true)
 if [ -n "$css" ]; then
   curl -L -sS -o /tmp/tunnel-check.css -w 'css HTTP %{http_code} bytes=%{size_download}\n' --max-time 20 "$url$css"
+else
+  echo 'css not found'
 fi
 ```
+
+If the public tunnel shows raw/unstyled HTML, diagnose local first before blaming Cloudflare:
+
+```sh
+curl -sS -o /tmp/local-check.html -w 'local page HTTP %{http_code}\n' --max-time 10 http://127.0.0.1:<PORT>/<ROUTE>
+css=$(grep -o '/_next/static/css/[^" ]*\.css[^" ]*' /tmp/local-check.html | head -n1 || true)
+[ -n "$css" ] && curl -sS -o /tmp/local-check.css -w 'local css HTTP %{http_code}\n' --max-time 10 "http://127.0.0.1:<PORT>$css"
+```
+
+If local CSS is 404, the tunnel is forwarding correctly and the preview server is poisoned. Ask approval, then use the safe dev-server resummon reference: kill only the verified preview PIDs, clear `.next`, restart the dev server, then re-check local and tunnel CSS.
 
 Optionally inspect the downloaded HTML for an expected product marker, without printing secrets:
 
@@ -130,10 +169,36 @@ Say "Close prototype tunnel" when done.
 
 ## Closing the tunnel
 
-Use the process/session manager when available, or identify the exact cloudflared PID before killing. Do not kill unrelated processes.
+Use the process/session manager when available, but always verify the actual `cloudflared` child process is gone afterward. A managed background session may kill only the wrapper shell while leaving the `cloudflared tunnel --url ...` child alive.
 
 ```sh
 pgrep -a cloudflared
 ```
 
-Then terminate only the tunnel PID/session that matches the preview URL/port.
+Then terminate only the tunnel PID/session that matches the preview URL/port. After termination, verify both process state and public URL failure:
+
+```sh
+pgrep -a cloudflared || true
+python3 - <<'PY'
+import urllib.request
+url = 'https://<your-subdomain>.trycloudflare.com/<route>'
+try:
+    r = urllib.request.urlopen(url, timeout=8)
+    print('UNEXPECTED', r.status)
+except Exception as e:
+    print('closed_or_unreachable', type(e).__name__, str(e)[:180])
+PY
+```
+
+If the URL returns Cloudflare `530` or connection failure and `pgrep` is empty, the public Gate is sealed. Leave the local preview running unless the user explicitly asked to stop it too.
+
+
+```sh
+pgrep -af 'cloudflared tunnel --url http://127\.0\.0\.1:<PORT>' || true
+# Replace <PID> with the exact PID shown above.
+kill <PID>
+sleep 2
+pgrep -a cloudflared || true
+```
+
+Expected public check after closure is an unreachable/Cloudflare error such as HTTP 530. Keep the local preview server running unless the user explicitly asks to close it too.

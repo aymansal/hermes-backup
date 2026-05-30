@@ -16,7 +16,7 @@ import re
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from hermes_constants import get_hermes_home
+from hermes_constants import VALID_REASONING_EFFORTS, get_hermes_home
 from typing import Optional, Dict, List, Any, Union
 
 logger = logging.getLogger(__name__)
@@ -79,6 +79,26 @@ def _coerce_job_text(value: Any, fallback: str = "") -> str:
     return str(value)
 
 
+def _normalize_reasoning_effort(value: Any) -> Optional[str]:
+    """Normalize a per-job reasoning effort override.
+
+    ``None``/empty clears the override so scheduler falls back to the global
+    ``agent.reasoning_effort``.  Valid values mirror the slash command/global
+    config surface: ``none`` plus ``VALID_REASONING_EFFORTS``.
+    """
+    if value is None or value is False:
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    if text == "none" or text in VALID_REASONING_EFFORTS:
+        return text
+    raise ValueError(
+        "Invalid reasoning_effort for cron job: "
+        f"{value!r}. Expected one of: none, {', '.join(VALID_REASONING_EFFORTS)}."
+    )
+
+
 def _schedule_display_for_job(job: Dict[str, Any]) -> str:
     display = _coerce_job_text(job.get("schedule_display")).strip()
     if display:
@@ -130,6 +150,10 @@ def _normalize_job_record(job: Dict[str, Any]) -> Dict[str, Any]:
 
     profile = _coerce_job_text(normalized.get("profile")).strip()
     normalized["profile"] = profile or None
+
+    normalized["reasoning_effort"] = _normalize_reasoning_effort(
+        normalized.get("reasoning_effort")
+    )
 
     return normalized
 
@@ -524,6 +548,7 @@ def create_job(
     workdir: Optional[str] = None,
     profile: Optional[str] = None,
     no_agent: bool = False,
+    reasoning_effort: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a new cron job.
@@ -573,6 +598,8 @@ def create_job(
                 and deliver its stdout directly. Empty stdout = silent (no
                 delivery). Requires ``script`` to be set. Ideal for classic
                 watchdogs and periodic alerts that don't need LLM reasoning.
+        reasoning_effort: Optional per-job reasoning override (none, minimal,
+                low, medium, high, xhigh). Ignored when ``no_agent=True``.
 
     Returns:
         The created job dict
@@ -608,6 +635,7 @@ def create_job(
     normalized_workdir = _normalize_workdir(workdir)
     normalized_profile = _normalize_profile(profile)
     normalized_no_agent = bool(no_agent)
+    normalized_reasoning_effort = _normalize_reasoning_effort(reasoning_effort)
 
     # no_agent jobs are meaningless without a script — the script IS the job.
     # Surface this as a clear ValueError at create time so bad configs never
@@ -662,6 +690,7 @@ def create_job(
         "enabled_toolsets": normalized_toolsets,
         "workdir": normalized_workdir,
         "profile": normalized_profile,
+        "reasoning_effort": normalized_reasoning_effort,
     }
 
     jobs = load_jobs()
@@ -750,6 +779,11 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                 updates["profile"] = None
             else:
                 updates["profile"] = _normalize_profile(_profile)
+
+        if "reasoning_effort" in updates:
+            updates["reasoning_effort"] = _normalize_reasoning_effort(
+                updates["reasoning_effort"]
+            )
 
         updated = _apply_skill_fields({**job, **updates})
         schedule_changed = "schedule" in updates

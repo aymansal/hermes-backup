@@ -20,15 +20,15 @@
       "schedule_display": "0 3 * * *",
       "repeat": {
         "times": null,
-        "completed": 8
+        "completed": 9
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-22T09:57:27.043260+00:00",
-      "next_run_at": "2026-05-30T03:00:00+00:00",
-      "last_run_at": "2026-05-28T03:00:31.224341+00:00",
+      "next_run_at": "2026-05-31T03:00:00+00:00",
+      "last_run_at": "2026-05-29T03:00:15.765671+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -41,14 +41,14 @@
     {
       "id": "f07a5148e1e6",
       "name": "Daily Holographic Memory Curator",
-      "prompt": "",
+      "prompt": "You are the Daily Holographic Memory Curator reviewer for Ayman's Hermes.\n\nThe attached script output is a DRY-RUN candidate report only. The script has not written memory. Your job is to review candidates with strict durable-memory standards and use the Holographic memory/fact_store tools only for facts that truly deserve persistence.\n\nRules:\n- Store only compact durable facts that will still matter in future sessions.\n- Prefer user preferences, stable project facts, stable architecture/workflow decisions, and reusable technical environment facts.\n- Reject compaction-summary instructions, assistant promises, current task state, PR/issue/commit/job IDs, quota/run status, logs, raw commands, noisy malformed sentences, and anything likely stale within a week.\n- Never store secrets, tokens, cookies, private keys, or raw logs.\n- Do not store commands as facts. Procedures belong in Skill Runes, not Holographic memory.\n- Before adding a fact, search/probe existing Holographic memory to avoid duplicates or contradictions.\n- If no candidates pass, add nothing and report that nothing durable passed review.\n- Final response should be a short report: facts added count, rejected/noise summary, and any System Alert.\n",
       "skills": [],
       "skill": null,
-      "model": "glm-5.1",
+      "model": "deepseek-v4-pro",
       "provider": "opencode-go",
       "base_url": null,
-      "script": "daily_memory_curator.py",
-      "no_agent": true,
+      "script": "daily_memory_curator_candidates.py",
+      "no_agent": false,
       "context_from": null,
       "schedule": {
         "kind": "cron",
@@ -58,23 +58,26 @@
       "schedule_display": "0 2 * * *",
       "repeat": {
         "times": null,
-        "completed": 10
+        "completed": 14
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-22T16:36:03.933633+00:00",
-      "next_run_at": "2026-05-30T02:00:00+00:00",
-      "last_run_at": "2026-05-29T02:00:09.357401+00:00",
+      "next_run_at": "2026-05-31T02:00:00+00:00",
+      "last_run_at": "2026-05-30T02:03:48.567496+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
       "deliver": "telegram:-1003650104887:1",
       "origin": null,
-      "enabled_toolsets": null,
+      "enabled_toolsets": [
+        "memory"
+      ],
       "workdir": null,
-      "profile": null
+      "profile": null,
+      "reasoning_effort": "xhigh"
     },
     {
       "id": "3b12a6b17895",
@@ -96,15 +99,15 @@
       "schedule_display": "*/10 * * * *",
       "repeat": {
         "times": null,
-        "completed": 902
+        "completed": 1039
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-22T20:46:56.646694+00:00",
-      "next_run_at": "2026-05-29T03:10:00+00:00",
-      "last_run_at": "2026-05-29T03:00:09.927315+00:00",
+      "next_run_at": "2026-05-30T03:10:00+00:00",
+      "last_run_at": "2026-05-30T03:00:58.562019+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -118,7 +121,51 @@
       "enabled_toolsets": null,
       "workdir": null,
       "profile": null
+    },
+    {
+      "id": "ef9b40657daf",
+      "name": "Kanban status-change watchdog",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "kanban_status_watchdog.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "*/2 * * * *",
+        "display": "*/2 * * * *"
+      },
+      "schedule_display": "*/2 * * * *",
+      "repeat": {
+        "times": null,
+        "completed": 50
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-30T01:16:09.361030+00:00",
+      "next_run_at": "2026-05-30T03:02:00+00:00",
+      "last_run_at": "2026-05-30T03:00:58.567996+00:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "telegram",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "-1003650104887",
+        "chat_name": "Shadow Realm 2",
+        "thread_id": "16"
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null,
+      "reasoning_effort": null
     }
   ],
-  "updated_at": "2026-05-29T03:00:09.927809+00:00"
+  "updated_at": "2026-05-30T03:00:58.568559+00:00"
 }

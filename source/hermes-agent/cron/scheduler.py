@@ -29,7 +29,7 @@ except ImportError:
     except ImportError:
         msvcrt = None
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 # Add parent directory to path for imports BEFORE repo-level imports.
 # Without this, standalone invocations (e.g. after `hermes update` reloads
@@ -1416,14 +1416,17 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
         model = job.get("model") or os.getenv("HERMES_MODEL") or ""
 
         # Load config.yaml for model, reasoning, prefill, toolsets, provider routing
-        _cfg = {}
+        _cfg: Dict[str, Any] = {}
         try:
             import yaml
             _cfg_path = str(_get_hermes_home() / "config.yaml")
             if os.path.exists(_cfg_path):
                 with open(_cfg_path, encoding="utf-8") as _f:
-                    _cfg = yaml.safe_load(_f) or {}
-                _cfg = _expand_env_vars(_cfg)
+                    loaded_cfg = _expand_env_vars(yaml.safe_load(_f) or {})
+                if isinstance(loaded_cfg, dict):
+                    _cfg = loaded_cfg
+                else:
+                    _cfg = {}
                 _model_cfg = _cfg.get("model", {})
                 if not job.get("model"):
                     if isinstance(_model_cfg, str):
@@ -1442,9 +1445,13 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
         except Exception:
             pass
 
-        # Reasoning config from config.yaml
+        # Reasoning config: per-job override wins; otherwise use config.yaml.
         from hermes_constants import parse_reasoning_effort
-        effort = str(_cfg.get("agent", {}).get("reasoning_effort", "")).strip()
+        job_effort = str(job.get("reasoning_effort") or "").strip()
+        agent_cfg = _cfg.get("agent", {}) if isinstance(_cfg, dict) else {}
+        if not isinstance(agent_cfg, dict):
+            agent_cfg = {}
+        effort = job_effort or str(agent_cfg.get("reasoning_effort", "")).strip()
         reasoning_config = parse_reasoning_effort(effort)
 
         # Prefill messages from env or config.yaml
@@ -1513,7 +1520,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             message = format_runtime_provider_error(exc)
             raise RuntimeError(message) from exc
 
-        fallback_model = _cfg.get("fallback_providers") or _cfg.get("fallback_model") or None
+        fallback_model: Any = _cfg.get("fallback_providers") or _cfg.get("fallback_model") or None
         credential_pool = None
         runtime_provider = str(runtime.get("provider") or "").strip().lower()
         if runtime_provider:
@@ -1552,6 +1559,19 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                 job_id, _mcp_exc,
             )
 
+        cron_enabled_toolsets = _resolve_cron_enabled_toolsets(job, _cfg)
+        cron_memory_enabled = bool(
+            cron_enabled_toolsets and "memory" in set(cron_enabled_toolsets)
+        )
+        logger.info(
+            "Job '%s': agent model=%s provider=%s reasoning_effort=%s memory_tools=%s",
+            job_id,
+            model,
+            runtime.get("provider"),
+            effort or "default",
+            cron_memory_enabled,
+        )
+
         agent = AIAgent(
             model=model,
             api_key=runtime.get("api_key"),
@@ -1570,7 +1590,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             providers_order=pr.get("order"),
             provider_sort=pr.get("sort"),
             openrouter_min_coding_score=(_cfg.get("openrouter") or {}).get("min_coding_score"),
-            enabled_toolsets=_resolve_cron_enabled_toolsets(job, _cfg),
+            enabled_toolsets=cron_enabled_toolsets,
             disabled_toolsets=["cronjob", "messaging", "clarify"],
             quiet_mode=True,
             # Cron jobs should always inherit the user's SOUL.md identity from
@@ -1579,7 +1599,11 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             # Without a workdir, keep cwd context discovery disabled.
             skip_context_files=not bool(_job_workdir),
             load_soul_identity=True,
-            skip_memory=True,  # Cron system prompts would corrupt user representations
+            # Normal cron runs skip memory injection/writes to avoid scheduled
+            # prompts corrupting user representations. Jobs that explicitly
+            # enable the memory toolset are curation jobs and need the memory
+            # provider loaded so fact_store/memory writes are available.
+            skip_memory=not cron_memory_enabled,
             platform="cron",
             session_id=_cron_session_id,
             session_db=_session_db,

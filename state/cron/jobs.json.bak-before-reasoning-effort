@@ -1,0 +1,124 @@
+{
+  "jobs": [
+    {
+      "id": "497c083d226b",
+      "name": "Hermes private backup refresh",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "hermes_backup_to_github.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 3 * * *",
+        "display": "0 3 * * *"
+      },
+      "schedule_display": "0 3 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 9
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-22T09:57:27.043260+00:00",
+      "next_run_at": "2026-05-30T03:00:00+00:00",
+      "last_run_at": "2026-05-29T03:00:15.765671+00:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "telegram:-1003650104887:1",
+      "origin": null,
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "f07a5148e1e6",
+      "name": "Daily Holographic Memory Curator",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": "glm-5.1",
+      "provider": "opencode-go",
+      "base_url": null,
+      "script": "daily_memory_curator.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 2 * * *",
+        "display": "0 2 * * *"
+      },
+      "schedule_display": "0 2 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 10
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-22T16:36:03.933633+00:00",
+      "next_run_at": "2026-05-30T02:00:00+00:00",
+      "last_run_at": "2026-05-29T02:00:09.357401+00:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "telegram:-1003650104887:1",
+      "origin": null,
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "3b12a6b17895",
+      "name": "Codex quota Morocco warmup/refresh",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "codex_quota_warmup.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "*/10 * * * *",
+        "display": "*/10 * * * *"
+      },
+      "schedule_display": "*/10 * * * *",
+      "repeat": {
+        "times": null,
+        "completed": 968
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-22T20:46:56.646694+00:00",
+      "next_run_at": "2026-05-29T14:10:00+00:00",
+      "last_run_at": "2026-05-29T14:00:53.546673+00:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "telegram:-1003650104887:1",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "-1003650104887",
+        "chat_name": "Shadow Realm 2",
+        "thread_id": "54"
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    }
+  ],
+  "updated_at": "2026-05-29T14:00:53.547184+00:00"
+}

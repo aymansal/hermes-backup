@@ -254,6 +254,16 @@ class TestJobCRUD:
         job = create_job(prompt="Test", schedule="30m")
         assert job["deliver"] == "local"
 
+    def test_create_job_stores_per_job_reasoning_effort(self, tmp_cron_dir):
+        job = create_job(
+            prompt="Review memory candidates",
+            schedule="every 1d",
+            reasoning_effort="xhigh",
+        )
+
+        assert job["reasoning_effort"] == "xhigh"
+        assert get_job(job["id"])["reasoning_effort"] == "xhigh"
+
 
 class TestUpdateJob:
     def test_update_name(self, tmp_cron_dir):
@@ -295,6 +305,26 @@ class TestUpdateJob:
         assert updated["enabled"] is False
         fetched = get_job(job["id"])
         assert fetched["enabled"] is False
+
+    def test_update_reasoning_effort(self, tmp_cron_dir):
+        job = create_job(prompt="Review memory candidates", schedule="every 1d")
+
+        updated = update_job(job["id"], {"reasoning_effort": "xhigh"})
+
+        assert updated["reasoning_effort"] == "xhigh"
+        assert get_job(job["id"])["reasoning_effort"] == "xhigh"
+
+    def test_update_reasoning_effort_empty_clears(self, tmp_cron_dir):
+        job = create_job(
+            prompt="Review memory candidates",
+            schedule="every 1d",
+            reasoning_effort="xhigh",
+        )
+
+        updated = update_job(job["id"], {"reasoning_effort": ""})
+
+
+        assert updated["reasoning_effort"] is None
 
     def test_update_nonexistent_returns_none(self, tmp_cron_dir):
         result = update_job("nonexistent_id", {"name": "X"})

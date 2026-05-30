@@ -93,17 +93,49 @@ Report phase changes promptly:
 
 Do not wait for Ayman to ask when a review passes or a decision gate opens.
 
+### Main-chat availability during Kanban raids
+
+Ayman's Kanban purpose is to keep the main chat available while workers/reviewers do the labor. Do not replace proper board notifications with long manual polling loops that make the General unavailable. After launching or dispatching a worker/reviewer, report the card IDs/current phase and return to chat unless there is an immediate approval gate, safety issue, or completed verdict to process. If a phase transition should have notified but did not, inspect once, report the likely notifier/board issue, and schedule/ask for infrastructure repair after the current card is safely settled.
+
+#### Telegram Kanban notifier scope
+
+Current Hermes gateway Kanban notifications are task-subscription based and deliver terminal event kinds only: `completed`, `blocked`, `gave_up`, `crashed`, and `timed_out`. They do **not** currently notify on `created`, `claimed`, `spawned`, `running`, or heartbeat/start events. Do not promise Ayman a "worker started" Telegram notification unless Hermes has been patched to include those event kinds.
+
+When creating cards from the CLI/operator context, explicitly subscribe the active worker and reviewer cards to Ayman's current Telegram topic if he expects notifications:
+
+```bash
+hermes kanban --board immopilot notify-subscribe <worker_task_id> --platform telegram --chat-id -1003650104887 --thread-id 113 --notifier-profile default
+hermes kanban --board immopilot notify-subscribe <review_task_id> --platform telegram --chat-id -1003650104887 --thread-id 113 --notifier-profile default
+```
+
+Then verify with `hermes kanban --board immopilot notify-list <task_id>`. A `blocked: review-required` notification is expected for worker handoff; the General must then complete the worker as "review-required handoff, not PASS" to unlock the dependent reviewer.
+
+When a worker blocks with `review-required`, treat it as a phase transition that requires immediate commander action: inspect the handoff, mark the worker done only as `review-required, not PASS`, dispatch the dependent reviewer, and report `review started`. This is not a success claim and must not trigger commit/push.
+
 ### Active status checks
 
 When Ayman asks `Status?`, treat it as a commander checkpoint, not a passive summary request:
 
 1. Poll every active worker/reviewer card that belongs to the current raid, plus relevant repo/artifact state if it affects the verdict.
-2. If a reviewer has returned `BLOCKED` and the fix is mechanical/clear from the review, immediately create the same-worker fix card and dependent GPT-5.5 re-review card before replying. Report both the blocker and the new card IDs/statuses.
-3. If the blocker needs Ayman's product/business decision, stop and ask instead of spawning a speculative fix.
-4. Distinguish `worker complete`, `review PASS`, `review BLOCKED`, and `committed` explicitly. Never imply a worker handoff is accepted before review PASS.
-5. For parallel lanes, group status by lane (`backend`, `prototype`, `review`, etc.) and state the current battle line in one concise final section.
-6. If Ayman says a board view looks different from your report, immediately re-check the actual Kanban board and identify stale/unrelated blocked cards before defending the earlier summary.
-7. If Ayman asks only for a link (for example, “just give me the Tailscale link”), answer with the link(s) only and skip the battle report.
+2. Keep status checks bounded. Do not disappear into long inline polling loops after launching Kanban; Kanban exists so the main chat stays available. Poll enough to report the phase accurately, then return a concise status unless a worker/reviewer has already crossed a decision gate.
+3. If a reviewer has returned `BLOCKED` and the fix is mechanical/clear from the review, immediately create the same-worker fix card and dependent GPT-5.5 re-review card before replying. Report both the blocker and the new card IDs/statuses.
+4. If the blocker needs Ayman's product/business decision, stop and ask instead of spawning a speculative fix.
+5. Distinguish `worker complete`, `review PASS`, `review BLOCKED`, and `committed` explicitly. Never imply a worker handoff is accepted before review PASS.
+6. For parallel lanes, group status by lane (`backend`, `prototype`, `review`, etc.) and state the current battle line in one concise final section.
+7. If Ayman says a board view looks different from your report, immediately re-check the actual Kanban board and identify stale/unrelated blocked cards before defending the earlier summary.
+8. If Ayman asks only for a link (for example, “just give me the Tailscale link”), answer with the link(s) only and skip the battle report.
+
+#### Live-wait checkpoints
+
+When Ayman is visibly waiting in chat (`continue`, `update`, `what now`, or equivalent), avoid long silent polling loops. If a worker/reviewer is still running after about 2–3 minutes and there is no verdict, send a short checkpoint with:
+
+- active card id and assignee;
+- elapsed time;
+- last heartbeat/log line if available;
+- whether it looks alive vs stalled;
+- exact next checkpoint or action.
+
+Do not hide a 5–6 minute wait inside one terminal polling call unless the user explicitly asked to wait silently. A quiet operator looks stuck even when the worker is merely running.
 
 ### Dev-preview cache poison during Kanban raids
 

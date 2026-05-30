@@ -1006,6 +1006,67 @@ class TestRunJobSessionPersistence:
         kwargs = mock_agent_cls.call_args.kwargs
         assert kwargs["enabled_toolsets"] == ["web", "terminal", "file"]
 
+    def test_run_job_per_job_reasoning_effort_overrides_global_config(self, tmp_path):
+        job = {
+            "id": "reasoning-job",
+            "name": "reasoning test",
+            "prompt": "review memory candidates",
+            "reasoning_effort": "xhigh",
+        }
+        fake_db, patches = self._make_run_job_patches(tmp_path)
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("agent:\n  reasoning_effort: medium\n", encoding="utf-8")
+
+        with patches[0], patches[1], patches[2], patches[3], patches[4], \
+             patch("run_agent.AIAgent") as mock_agent_cls:
+            mock_agent = MagicMock()
+            mock_agent.run_conversation.return_value = {"final_response": "ok"}
+            mock_agent_cls.return_value = mock_agent
+            run_job(job)
+
+        kwargs = mock_agent_cls.call_args.kwargs
+        assert kwargs["reasoning_config"] == {"enabled": True, "effort": "xhigh"}
+
+    def test_run_job_memory_toolset_enables_memory_provider(self, tmp_path):
+        job = {
+            "id": "memory-curator-job",
+            "name": "memory curator",
+            "prompt": "review memory candidates",
+            "enabled_toolsets": ["memory"],
+        }
+        fake_db, patches = self._make_run_job_patches(tmp_path)
+
+        with patches[0], patches[1], patches[2], patches[3], patches[4], \
+             patch("run_agent.AIAgent") as mock_agent_cls:
+            mock_agent = MagicMock()
+            mock_agent.run_conversation.return_value = {"final_response": "ok"}
+            mock_agent_cls.return_value = mock_agent
+            run_job(job)
+
+        kwargs = mock_agent_cls.call_args.kwargs
+        assert kwargs["enabled_toolsets"] == ["memory"]
+        assert kwargs["skip_memory"] is False
+
+    def test_run_job_falls_back_to_global_reasoning_when_job_unset(self, tmp_path):
+        job = {
+            "id": "global-reasoning-job",
+            "name": "reasoning test",
+            "prompt": "review memory candidates",
+        }
+        fake_db, patches = self._make_run_job_patches(tmp_path)
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("agent:\n  reasoning_effort: high\n", encoding="utf-8")
+
+        with patches[0], patches[1], patches[2], patches[3], patches[4], \
+             patch("run_agent.AIAgent") as mock_agent_cls:
+            mock_agent = MagicMock()
+            mock_agent.run_conversation.return_value = {"final_response": "ok"}
+            mock_agent_cls.return_value = mock_agent
+            run_job(job)
+
+        kwargs = mock_agent_cls.call_args.kwargs
+        assert kwargs["reasoning_config"] == {"enabled": True, "effort": "high"}
+
     def test_run_job_enabled_toolsets_resolves_from_platform_config_when_not_set(self, tmp_path):
         """When a job has no explicit enabled_toolsets, the scheduler now
         resolves them from ``hermes tools`` platform config for ``cron``
