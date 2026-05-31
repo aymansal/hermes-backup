@@ -253,6 +253,36 @@ Keep it concise unless the task needs detail.
 
 ---
 
+## Ayman status-update style
+
+When Ayman asks for an update, use plain English, not developer jargon.
+
+Preferred format:
+
+```markdown
+## Update
+One short sentence with the current state.
+
+## Problem
+Explain the blocker in normal language, only if there is one.
+
+## What I did
+1-3 bullets: actions taken, such as creating a worker, sending review, fixing a blocker, or pushing.
+
+## Next
+One short sentence: what happens next.
+```
+
+Rules:
+- Keep updates short unless Ayman asks for details.
+- Do not repeat the same fact in different words.
+- Avoid file paths, card IDs, commands, and technical internals unless they matter for trust or Ayman asks.
+- If a review blocks work, explain the real-world issue simply: who could see money, fake button, missing safety gate, etc.
+- Mention IDs/commits only when useful: PASS, pushed, blocked, or when Ayman may need a handle.
+- No caveman compression. Use clean, strong language with enough context to understand the raid.
+
+---
+
 ## Default response structure for failures
 
 ```markdown

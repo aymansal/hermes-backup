@@ -1273,7 +1273,7 @@ index 6d7845c49..848be8fcb 100644
          schedule_changed = "schedule" in updates
  
 diff --git a/cron/scheduler.py b/cron/scheduler.py
-index e76f67064..7e1fa6525 100644
+index e76f67064..06ad2b153 100644
 --- a/cron/scheduler.py
 +++ b/cron/scheduler.py
 @@ -29,7 +29,7 @@ except ImportError:
@@ -1285,7 +1285,16 @@ index e76f67064..7e1fa6525 100644
  
  # Add parent directory to path for imports BEFORE repo-level imports.
  # Without this, standalone invocations (e.g. after `hermes update` reloads
-@@ -1416,14 +1416,17 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+@@ -595,6 +595,8 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
+     try:
+         user_cfg = load_config()
+         wrap_response = user_cfg.get("cron", {}).get("wrap_response", True)
++        if "wrap_response" in job:
++            wrap_response = bool(job.get("wrap_response"))
+     except Exception:
+         pass
+ 
+@@ -1416,14 +1418,17 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
          model = job.get("model") or os.getenv("HERMES_MODEL") or ""
  
          # Load config.yaml for model, reasoning, prefill, toolsets, provider routing
@@ -1306,7 +1315,7 @@ index e76f67064..7e1fa6525 100644
                  _model_cfg = _cfg.get("model", {})
                  if not job.get("model"):
                      if isinstance(_model_cfg, str):
-@@ -1442,9 +1445,13 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+@@ -1442,9 +1447,13 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
          except Exception:
              pass
  
@@ -1322,7 +1331,7 @@ index e76f67064..7e1fa6525 100644
          reasoning_config = parse_reasoning_effort(effort)
  
          # Prefill messages from env or config.yaml
-@@ -1513,7 +1520,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+@@ -1513,7 +1522,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
              message = format_runtime_provider_error(exc)
              raise RuntimeError(message) from exc
  
@@ -1331,7 +1340,7 @@ index e76f67064..7e1fa6525 100644
          credential_pool = None
          runtime_provider = str(runtime.get("provider") or "").strip().lower()
          if runtime_provider:
-@@ -1552,6 +1559,19 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+@@ -1552,6 +1561,19 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                  job_id, _mcp_exc,
              )
  
@@ -1351,7 +1360,7 @@ index e76f67064..7e1fa6525 100644
          agent = AIAgent(
              model=model,
              api_key=runtime.get("api_key"),
-@@ -1570,7 +1590,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+@@ -1570,7 +1592,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
              providers_order=pr.get("order"),
              provider_sort=pr.get("sort"),
              openrouter_min_coding_score=(_cfg.get("openrouter") or {}).get("min_coding_score"),
@@ -1360,7 +1369,7 @@ index e76f67064..7e1fa6525 100644
              disabled_toolsets=["cronjob", "messaging", "clarify"],
              quiet_mode=True,
              # Cron jobs should always inherit the user's SOUL.md identity from
-@@ -1579,7 +1599,11 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
+@@ -1579,7 +1601,11 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
              # Without a workdir, keep cwd context discovery disabled.
              skip_context_files=not bool(_job_workdir),
              load_soul_identity=True,
@@ -1374,9 +1383,36 @@ index e76f67064..7e1fa6525 100644
              session_id=_cron_session_id,
              session_db=_session_db,
 diff --git a/gateway/run.py b/gateway/run.py
-index cca9901cb..be8c8078f 100644
+index cca9901cb..b0ba6e7e1 100644
 --- a/gateway/run.py
 +++ b/gateway/run.py
+@@ -4553,7 +4553,7 @@ class GatewayRunner:
+                 def _collect():
+                     deliveries: list[dict] = []
+                     active_platforms = {
+-                        getattr(platform, "value", str(platform)).lower()
++                        str(getattr(platform, "value", platform)).lower()
+                         for platform in self.adapters.keys()
+                     }
+                     if not active_platforms:
+@@ -4613,7 +4613,7 @@ class GatewayRunner:
+                                         sub.get("task_id"), owner_profile, notifier_profile,
+                                     )
+                                     continue
+-                                platform = (sub.get("platform") or "").lower()
++                                platform = str(sub.get("platform") or "").lower()
+                                 if platform not in active_platforms:
+                                     logger.debug(
+                                         "kanban notifier: subscription for %s on %s skipped; adapter not connected",
+@@ -4652,7 +4652,7 @@ class GatewayRunner:
+                     sub = d["sub"]
+                     task = d["task"]
+                     board_slug = d.get("board")
+-                    platform_str = (sub["platform"] or "").lower()
++                    platform_str = str(sub["platform"] or "").lower()
+                     try:
+                         plat = _Platform(platform_str)
+                     except ValueError:
 @@ -8549,6 +8549,7 @@ class GatewayRunner:
                      context_tokens=agent_result.get("last_prompt_tokens", 0) or 0,
                      context_length=agent_result.get("context_length") or None,
@@ -3449,6 +3485,46 @@ index 32485a917..b1397a43a 100644
      def test_run_job_enabled_toolsets_resolves_from_platform_config_when_not_set(self, tmp_path):
          """When a job has no explicit enabled_toolsets, the scheduler now
          resolves them from ``hermes tools`` platform config for ``cron``
+diff --git a/tests/gateway/test_kanban_notifier.py b/tests/gateway/test_kanban_notifier.py
+index 8e85f0450..98386ee37 100644
+--- a/tests/gateway/test_kanban_notifier.py
++++ b/tests/gateway/test_kanban_notifier.py
+@@ -106,6 +106,35 @@ def test_kanban_notifier_claim_prevents_second_watcher_send(tmp_path, monkeypatc
+     assert adapter2.sent == []
+ 
+ 
++def test_kanban_notifier_skips_malformed_numeric_platform_sub(tmp_path, monkeypatch):
++    db_path = tmp_path / "malformed-platform.db"
++    monkeypatch.setenv("HERMES_KANBAN_DB", str(db_path))
++    kb.init_db()
++
++    tid = _create_completed_subscription()
++    conn = kb.connect()
++    try:
++        with kb.write_txn(conn):
++            conn.execute(
++                """
++                INSERT OR IGNORE INTO kanban_notify_subs
++                    (task_id, platform, chat_id, thread_id, created_at)
++                VALUES (?, ?, ?, ?, ?)
++                """,
++                ("legacy-bad-sub", 75, "chat-1", "", 1),
++            )
++    finally:
++        conn.close()
++
++    adapter = RecordingAdapter()
++    runner = _make_runner(adapter)
++
++    asyncio.run(_run_one_notifier_tick(monkeypatch, runner))
++
++    assert len(adapter.sent) == 1
++    assert tid in adapter.sent[0]["text"]
++
++
+ def test_kanban_notifier_rewinds_claim_if_adapter_disconnects(tmp_path, monkeypatch):
+     db_path = tmp_path / "adapter-disconnect.db"
+     monkeypatch.setenv("HERMES_KANBAN_DB", str(db_path))
 diff --git a/tests/gateway/test_runtime_footer.py b/tests/gateway/test_runtime_footer.py
 index 9c36706f7..7b0463a12 100644
 --- a/tests/gateway/test_runtime_footer.py

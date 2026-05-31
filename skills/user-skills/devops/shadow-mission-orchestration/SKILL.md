@@ -23,8 +23,11 @@ Use this Skill Rune when Ayman gives a mission that benefits from multiple worke
 Mandatory linked references:
 
 - `references/kanban-review-required-handoff.md` — load/read this when a Kanban worker blocks as `review-required`, freezes at completion, or leaves useful uncommitted work that must be preserved and sent to GPT-5.5 review instead of treated as PASS.
+- `references/ayman-kanban-review-routing-doctrine.md` — load/read this when a worker handoff must unlock GPT-5.5 review, or when a blocked review needs a focused fix card; it captures the parent/child blocked-state pitfall and safe unlink/dispatch pattern.
 - `references/kanban-fast-status-heartbeats.md` — load/read this when Ayman asks `Update?`, `Status?`, or similar during a Kanban raid. It encodes the fast heartbeat rule: short status probe only, no long logs/gates/diffs unless he says `Go` or asks for detail.
+- `references/kanban-progress-estimation.md` — load/read this when Ayman asks for a completion percentage during a Kanban raid. It captures the raw-board-count vs weighted-product-progress distinction so the answer is honest without over-auditing.
 - `references/kanban-opencode-go-gate-recovery.md` — load/read this when OpenCode Go worker profiles fail with Kanban protocol violations after an expired/rotated subscription or API key. It captures the redacted `.env` update, profile smoke test, unblock/dispatch, and salvage-review sequence.
+- `references/kanban-forced-skill-worker-crash.md` — load/read this when a Kanban worker crash-loops with `Unknown skill(s)`. It captures the safe pattern: inspect minimal log/status, block the bad card, recreate without forced skill loading, embed doctrine directly in the card body, and preserve review gates.
 - `references/kanban-repo-integrity-final-gate.md` — load/read this before final gates/commit in Kanban coding raids, especially if workers/reviewers used scratch directories or the dev server may be serving from a deleted/open process. It captures the Git-root/package-manifest integrity checkpoint and recovery stop rule.
 - `references/shadow-agent-model-codex.md` — load/read this before creating Kanban worker profiles or assigning long-running cards. It contains Ayman's universal 90-second Kanban-first rule, OpenCode Go live model roster, task-to-model routing table, and review/iteration doctrine.
 - `references/codex-quota-rotation-ops.md` — load/read this for Hermes Codex/ChatGPT multi-account quota rotation, dashboard quota display, weekly-vs-5h quota gates, Morocco warmup timers, and restart/activation safety.
@@ -175,16 +178,34 @@ When Ayman says to establish/build/implement a long Hermes feature, immediately 
 
 When Ayman asks only `Update?`, `Status?`, or similar during a Kanban raid, do a short status probe and answer fast. Do not pull long logs, inspect diffs, run gates, or disappear into multi-minute investigation unless he explicitly asks for details or says `Go` after a proposed next move.
 
+When Ayman asks for a percentage of completion, load `references/kanban-progress-estimation.md` and answer with two levels: raw Kanban count and weighted product/MVP estimate. Raw card counts are useful evidence, but they overstate completion when remaining work includes dashboards, final review gates, smoke tests, or unwired shells.
+
 Operational limit for quick checks: use at most a lightweight task `show` plus a compact active-board list. Avoid `log --tail`, `runs`, full diffs, tests, builds, codegen, or git inspection unless the requested status cannot be answered from the task summary. Ayman explicitly corrected this after a status request turned into a long 12-minute disappearance; status questions are heartbeat pings, not investigation orders.
 
-Default response shape for these quick checks:
+Default response shape for these quick checks, after Ayman's update-format correction:
 
 ```text
-Status: <running|blocked|done>
-Active card: <id + title>
-Reason/verdict: <one line only, if visible from task summary>
-Next move: <one safe action>
+## Update
+One short plain-English sentence with the current state.
+
+## Problem
+Only include if blocked or risky; explain the real-world issue simply.
+
+## What I did
+1-3 bullets. Say worker/review/fix/push actions, not raw tool internals.
+
+## Next
+One short sentence with the next gate.
 ```
+
+Style rules for Ayman updates:
+
+- Keep it short unless he asks for detail.
+- Avoid developer jargon, command dumps, paths, card IDs, and file names unless they matter for trust or he asks.
+- Do not repeat the same fact in different wording.
+- Explain review blockers in normal business terms: e.g. "money totals could be visible without date limits" or "a button looked usable but did nothing".
+- Mention card IDs/commits only when useful: PASS, pushed, blocked, or if Ayman needs a handle.
+- No caveman compression; use clean plain English with enough context to understand the raid.
 
 If the visible state is `blocked` and likely `review-required`, say so and offer/perform the next handoff only when Ayman says `Go` or has already authorized that exact next move. The main chat must stay responsive; status questions are not permission to enter a long dungeon crawl.
 
@@ -404,8 +425,11 @@ If a worker fails twice on the same task shape, switch model family rather than 
 - Shadow changes scope: reject scope creep and narrow the task.
 - Shadow cannot access needed credentials: stop and ask Ayman for Access Keys.
 - OpenCode Go worker exits cleanly without `kanban_complete` / `kanban_block`: treat as a possible Access Gate or worker-protocol issue; read `references/kanban-opencode-go-gate-recovery.md`, refresh `.env` keys only if Ayman provides them, smoke test the profile, then unblock/dispatch or salvage useful output to review.
+- OpenCode Go worker exits cleanly without `kanban_complete` / `kanban_block`: treat as a possible Access Gate or worker-protocol issue; read `references/kanban-opencode-go-gate-recovery.md`, refresh `.env` keys only if Ayman provides them, smoke test the profile, then unblock/dispatch or salvage useful output to review.
 - For repo-changing Kanban raids, the General must not treat worker `review-required` or reviewer self-report as final. Promote a valid worker handoff to done, dispatch GPT-5.5 review, then after PASS run final repo integrity checks and gates. If the project doctrine requires GitHub durability, commit with review summary and push to the configured remote. Report the commit hash and pushed branch.
 - Final gates/commit fail with missing `package.json`, missing `pnpm-workspace.yaml`, or `fatal: not a git repository`: stop immediately. Do not claim the card is sealed, do not kill a still-serving dev process, and read `references/kanban-repo-integrity-final-gate.md` before any recovery.
 - Kanban review/fix cards for a real project path must be created with `--workspace dir:/absolute/project/path`, not the default `scratch` workspace. A scratch card with `workspace_path=/home/ubuntu/<project>` can be treated as disposable by cleanup on completion; Hermes has a guardrail now, but orchestration must still classify project repos as `dir`.
+- Kanban worker crash-loop with `Unknown skill(s): ...`: the assigned profile may not see user/local Skill Runes. Stop the crash loop, verify the repo has no salvageable diff, then recreate the card without forced `--skill` args and embed the required doctrine directly in the card body. Do not keep redispatching a sealed Skill Gate.
+- Kanban used for small task: too much overhead; use delegate_task next time.
 - Kanban used for small task: too much overhead; use delegate_task next time.
 - delegate_task used for long campaign: promote to Kanban raid board.

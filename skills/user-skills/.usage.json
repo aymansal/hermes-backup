@@ -3,14 +3,14 @@
     "archived_at": null,
     "created_at": "2026-05-23T18:46:59.529747+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-05-28T15:25:24.471170+00:00",
-    "last_used_at": "2026-05-28T15:23:12.016271+00:00",
-    "last_viewed_at": "2026-05-28T15:23:12.007537+00:00",
-    "patch_count": 92,
+    "last_patched_at": "2026-05-31T02:42:38.613452+00:00",
+    "last_used_at": "2026-05-31T02:42:06.012840+00:00",
+    "last_viewed_at": "2026-05-31T02:42:06.009041+00:00",
+    "patch_count": 107,
     "pinned": false,
     "state": "active",
-    "use_count": 55,
-    "view_count": 54
+    "use_count": 61,
+    "view_count": 60
   },
   "browser-automation-tool-evaluation": {
     "archived_at": null,
@@ -56,26 +56,26 @@
     "created_at": "2026-05-25T18:38:15.240266+00:00",
     "created_by": "agent",
     "last_patched_at": "2026-05-28T16:24:35.521788+00:00",
-    "last_used_at": "2026-05-29T02:59:08.489849+00:00",
-    "last_viewed_at": "2026-05-29T02:59:08.486477+00:00",
+    "last_used_at": "2026-05-30T15:42:28.219068+00:00",
+    "last_viewed_at": "2026-05-30T15:42:28.216276+00:00",
     "patch_count": 23,
     "pinned": false,
     "state": "active",
-    "use_count": 14,
-    "view_count": 14
+    "use_count": 16,
+    "view_count": 16
   },
   "hermes-cron-operations": {
     "archived_at": null,
     "created_at": "2026-05-29T14:14:29.238196+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-05-30T01:16:42.391261+00:00",
-    "last_used_at": "2026-05-30T01:14:10.318127+00:00",
-    "last_viewed_at": "2026-05-30T01:14:10.312434+00:00",
-    "patch_count": 2,
+    "last_patched_at": "2026-05-30T14:00:34.283695+00:00",
+    "last_used_at": "2026-05-30T13:56:33.145459+00:00",
+    "last_viewed_at": "2026-05-30T13:56:33.142416+00:00",
+    "patch_count": 11,
     "pinned": false,
     "state": "active",
-    "use_count": 2,
-    "view_count": 2
+    "use_count": 8,
+    "view_count": 8
   },
   "hermes-dashboard-development": {
     "archived_at": null,
@@ -94,14 +94,14 @@
     "archived_at": null,
     "created_at": "2026-05-21T15:24:13.134565+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-05-29T03:00:13.843830+00:00",
-    "last_used_at": "2026-05-29T02:59:15.279773+00:00",
-    "last_viewed_at": "2026-05-29T02:59:15.276610+00:00",
-    "patch_count": 51,
+    "last_patched_at": "2026-05-30T21:23:44.078435+00:00",
+    "last_used_at": "2026-05-30T21:22:07.152069+00:00",
+    "last_viewed_at": "2026-05-30T21:22:07.148928+00:00",
+    "patch_count": 52,
     "pinned": false,
     "state": "active",
-    "use_count": 25,
-    "view_count": 25
+    "use_count": 26,
+    "view_count": 26
   },
   "opensrc": {
     "archived_at": null,
@@ -121,13 +121,13 @@
     "created_at": "2026-05-23T01:29:42.702927+00:00",
     "created_by": null,
     "last_patched_at": "2026-05-30T01:35:06.278935+00:00",
-    "last_used_at": "2026-05-30T02:34:00.242008+00:00",
-    "last_viewed_at": "2026-05-30T02:34:00.238909+00:00",
+    "last_used_at": "2026-05-30T13:28:53.621786+00:00",
+    "last_viewed_at": "2026-05-30T13:28:53.611770+00:00",
     "patch_count": 12,
     "pinned": false,
     "state": "active",
-    "use_count": 11,
-    "view_count": 11
+    "use_count": 12,
+    "view_count": 12
   },
   "shadcn-ui-cli": {
     "archived_at": null,
@@ -146,14 +146,14 @@
     "archived_at": null,
     "created_at": "2026-05-22T15:56:13.362626+00:00",
     "created_by": null,
-    "last_patched_at": "2026-05-27T10:28:22.213677+00:00",
-    "last_used_at": "2026-05-27T10:22:39.470798+00:00",
-    "last_viewed_at": "2026-05-27T10:22:39.465565+00:00",
-    "patch_count": 60,
+    "last_patched_at": "2026-05-31T02:42:54.436637+00:00",
+    "last_used_at": "2026-05-31T02:42:45.986571+00:00",
+    "last_viewed_at": "2026-05-31T02:42:45.982810+00:00",
+    "patch_count": 72,
     "pinned": false,
     "state": "active",
-    "use_count": 57,
-    "view_count": 55
+    "use_count": 68,
+    "view_count": 66
   },
   "skillui": {
     "archived_at": null,
@@ -173,13 +173,13 @@
     "created_at": "2026-05-29T17:25:59.342356+00:00",
     "created_by": "agent",
     "last_patched_at": "2026-05-29T18:28:47.968108+00:00",
-    "last_used_at": "2026-05-29T18:28:25.217804+00:00",
-    "last_viewed_at": "2026-05-29T18:28:25.214292+00:00",
+    "last_used_at": "2026-05-30T14:57:37.238285+00:00",
+    "last_viewed_at": "2026-05-30T14:57:37.235569+00:00",
     "patch_count": 6,
     "pinned": false,
     "state": "active",
-    "use_count": 4,
-    "view_count": 4
+    "use_count": 6,
+    "view_count": 6
   },
   "terminal-command-guidance": {
     "archived_at": null,

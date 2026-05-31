@@ -165,6 +165,10 @@ For live systems, do not jump straight to service restarts.
 
 Service restarts touch the live Comms Gate. Ask first.
 
+### Startup / one-shot scripts that stop Hermes services
+
+If a Raid Timer, startup script, or one-shot systemd unit temporarily stops `hermes-gateway.service` or `hermes-dashboard.service`, service restoration must be guarded by a shell `trap` or equivalent `finally` block. Do not rely on a final happy-path `systemctl start ...` line after the risky operation. A failure in the middle can leave Telegram and the Shadow Realm down unattended. See `references/startup-memory-cleanup-safety.md` for the safe Holographic memory cleanup pattern.
+
 ---
 
 ## Verification Snippets
@@ -198,6 +202,27 @@ Expected signs for a dry-run curator:
 
 ---
 
+## Pattern: Dynamic Account-Based Warmup Jobs
+
+Use this when a cron script warms or refreshes a variable number of pooled credentials, especially OpenAI Codex accounts. Do not hardcode a fixed hour→account map when the credential pool can grow. Count usable credentials at runtime and derive the account index from the local schedule hour.
+
+For Ayman's Codex quota warmup doctrine, preserve the existing start unless he changes it explicitly:
+
+- `START_HOUR = 9` Africa/Casablanca
+- account #1 warms at 09:00 → reset around 14:00
+- account #2 warms at 10:00 → reset around 15:00
+- account #N warms at `START_HOUR + N - 1`
+
+Important pitfall: if the gateway hosts the cron ticker and `hermes-gateway.service` is down during a warmup window, that slot is missed. Later silent `ok` runs do **not** prove accounts warmed. Verify today's output files and `~/.hermes/state/codex_quota_warmup_state.json` slot keys before reporting success.
+
+Reference: `references/codex-quota-warmup-dynamic-slots.md`.
+
+## Pattern: Telegram `/sethome` Delivery
+
+For Ayman's general Hermes cron notifications, prefer `deliver: telegram` so the Raid Timer follows the current Telegram `/sethome`. Do not hardcode `telegram:<chat_id>:<thread_id>` unless he explicitly asks for a fixed chat/topic. If a cron notification lands in the wrong topic, check `/sethome` first, then update hardcoded jobs to `deliver: telegram` and re-list to verify.
+
+Reference: `references/telegram-sethome-delivery.md`.
+
 ## Pattern: Script-Only Status-Change Watchdog
 
 Use this when the user wants a reliable Comms Gate ping only when durable state changes, without burning model calls or requiring the main chat to poll.
@@ -214,6 +239,8 @@ Example use case: a Kanban worker status watchdog that scans board SQLite files 
 
 ## Common System Alerts
 
+- **Cron notification lands in the wrong Telegram topic:** if the job should follow home delivery, set `deliver: telegram`; hardcoded `telegram:<chat_id>:<thread_id>` pins it to that topic. Also verify where Telegram `/sethome` currently points.
+- **Cron notification looks robotic (`Cronjob Response: ...` wrapper):** current scheduler supports global `cron.wrap_response: false`; Ayman's local branch also supports per-job `wrap_response: false` in the job record so one watchdog can deliver human-readable text without changing all Raid Timers. If the scheduler runs inside a long-lived gateway process, restart approval is required before new scheduler code is active.
 - **Model/provider set but ignored:** job is probably `no_agent: true`.
 - **Reasoning override ignored:** scheduler may only read global `agent.reasoning_effort`; patch per-job support.
 - **Cron tool does not show new field:** update `_format_job()` and tool schema in `tools/cronjob_tools.py`.

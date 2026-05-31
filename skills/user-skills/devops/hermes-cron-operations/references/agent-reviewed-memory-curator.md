@@ -124,5 +124,7 @@ python -m pytest tests/cron/test_jobs.py tests/cron/test_scheduler.py -q -o 'add
 
 - Do not call a no-agent cron "using DeepSeek" just because the job has `model: deepseek-v4-pro`; no-agent ignores the model.
 - Do not let both the script and agent write memory. Pick one writer; for curated memory, make the agent the writer.
+- Do not feed compaction-summary scaffolding to the reviewer. Pre-filter messages/candidates containing `CONTEXT COMPACTION`, `REFERENCE ONLY`, `this summary`, `do not answer questions`, `compaction note`, `never ignore or deprioritize memory`, or similar handoff/meta-instruction phrases before the LLM sees them.
+- Do not feed stale log/process/status fragments as memory candidates: git ranges, file:line snippets, process completion dumps, gateway-is-down messages, "last thing we did", or active task status like "deployed" / "should be back".
 - Do not store noisy user frustration literally as durable operating rules unless it is clear, stable, and not contradicted by existing profile/memory.
 - Do not restart Hermes silently after patching scheduler code. Ask Ayman first.

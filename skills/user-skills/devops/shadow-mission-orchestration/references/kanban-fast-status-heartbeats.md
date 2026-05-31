@@ -32,14 +32,23 @@ Avoid unless Ayman says `Go`, asks for details, or the status cannot be answered
 - reading large files
 
 ## Response shape
-Keep it short:
+Keep it short and use Ayman's plain-English update format:
 
 ```text
-Status: <running|blocked|done>
-Active card: <id + title>
-Reason/verdict: <one line from summary if visible>
-Next move: <one safe action>
+## Update
+One short sentence with the current state.
+
+## Problem
+Only include if blocked or risky; explain the real-world issue simply.
+
+## What I did
+1-3 bullets about worker/review/fix/push actions. Avoid raw commands and file paths unless needed.
+
+## Next
+One short sentence with the next gate.
 ```
+
+Do not repeat the same fact in different words. Avoid developer jargon. Explain blockers like a business risk: “money could be visible without date limits,” “a fake tenant could be queried,” or “a button looked usable but did nothing.”
 
 ## Go means action
 When Ayman replies `Go` after a proposed next move, execute that move directly and report the result. Examples:

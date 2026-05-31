@@ -8,7 +8,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 3.4: Project list screen + compact app navigation",
-      "updated_at": 1779647533
+      "updated_at": 1779647533,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_0686d2f8": {
       "assignee": "shadowkimiresearch",
@@ -18,7 +20,9 @@
       "last_heartbeat_at": null,
       "status": "blocked",
       "title": "Card 6.4: Client list/profile UI",
-      "updated_at": 1779889131
+      "updated_at": 1779889131,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_06f2c05a": {
       "assignee": "default",
@@ -28,7 +32,9 @@
       "last_heartbeat_at": null,
       "status": "archived",
       "title": "Review MVP prototype: ImmoPilot product walkthrough",
-      "updated_at": 1779639913
+      "updated_at": 1779639913,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_0a3859aa": {
       "assignee": "shadowdscoder",
@@ -38,7 +44,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.5: Outgoing payment schema/functions",
-      "updated_at": 1779734954
+      "updated_at": 1779734954,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_0ca6da49": {
       "assignee": "shadowdscoder",
@@ -48,7 +56,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.9B: Standardize MAD/DH currency UX",
-      "updated_at": 1780002424
+      "updated_at": 1780002424,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_0cce7be8": {
       "assignee": "shadowkimiresearch",
@@ -58,7 +68,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "MVP prototype V2: modern compact ImmoPilot UI direction",
-      "updated_at": 1779644231
+      "updated_at": 1779644231,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_0ee704c4": {
       "assignee": "default",
@@ -68,7 +80,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.9B: Standardize MAD/DH currency UX",
-      "updated_at": 1780002636
+      "updated_at": 1780002636,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_0fd22788": {
       "assignee": "shadowkimiresearch",
@@ -78,7 +92,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 4.3: Apartment detail screen",
-      "updated_at": 1779673235
+      "updated_at": 1779673235,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_1256b625": {
       "assignee": "default",
@@ -88,7 +104,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "1.2 review: French tenant app copy",
-      "updated_at": 1779633832
+      "updated_at": 1779633832,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_12fa42dc": {
       "assignee": "shadowkimiresearch",
@@ -98,7 +116,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.6: Supplier/subcontractor list + profile UI shell",
-      "updated_at": 1779741295
+      "updated_at": 1779741295,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_1502b1b0": {
       "assignee": "default",
@@ -108,7 +128,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 5.4 cost allocation ctx typing fix",
-      "updated_at": 1779722909
+      "updated_at": 1779722909,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_16b5923f": {
       "assignee": "shadowkimiresearch",
@@ -118,7 +140,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.5: Sale/reservation form UI",
-      "updated_at": 1779897384
+      "updated_at": 1779897384,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_182efa7f": {
       "assignee": "default",
@@ -128,7 +152,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.9: safe query gating",
-      "updated_at": 1779993066
+      "updated_at": 1779993066,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_1b28fce0": {
       "assignee": "default",
@@ -138,7 +164,33 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.5B: existing deposit vs recomputed total",
-      "updated_at": 1779915706
+      "updated_at": 1779915706,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_1c6ecaef": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_1c6ecaef",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Card 9.1: Tenant isolation review",
+      "updated_at": 1780195586,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_1f692584": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_1f692584",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Re-review Card 7.4: Bons de livraison route shell",
+      "updated_at": 1780172199,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_2267b1cd": {
       "assignee": "default",
@@ -148,7 +200,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 5.3: Supplier/subcontractor schema/functions",
-      "updated_at": 1779715858
+      "updated_at": 1779715858,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_2386ca4f": {
       "assignee": "default",
@@ -158,7 +212,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 4.1: codegen-clean apartments API",
-      "updated_at": 1779661507
+      "updated_at": 1779661507,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_238f07e4": {
       "assignee": "shadowdscoder",
@@ -168,7 +224,45 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "0.2 implement: security + tenant foundation skeleton",
-      "updated_at": 1779630679
+      "updated_at": 1779630679,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_2513284a": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_2513284a",
+      "last_heartbeat_at": null,
+      "status": "blocked",
+      "title": "Review Card 7.3: Delivery notes backend safety",
+      "updated_at": 1780156706,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_28598b9f": {
+      "assignee": "shadowkimiresearch",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_28598b9f",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Fix Card 7.4: honest delivery notes filters",
+      "updated_at": 1780172119,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_28bbdc9c": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_28bbdc9c",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Re-review Fix Card 7.2R: Documents fake-data removal",
+      "updated_at": 1780151193,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_296db891": {
       "assignee": "shadowkimiresearch",
@@ -178,7 +272,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.5: TVA and reservation date fields",
-      "updated_at": 1779900082
+      "updated_at": 1779900082,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_2b8fe603": {
       "assignee": "shadowkimiresearch",
@@ -188,7 +284,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.7: Purchase list + form UI shell",
-      "updated_at": 1779823838
+      "updated_at": 1779823838,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_2bde0469": {
       "assignee": "default",
@@ -198,7 +296,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 5.7 placeholder data consistency fix (dispatchable)",
-      "updated_at": 1779824451
+      "updated_at": 1779824451,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_2c6661b8": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_2c6661b8",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Final re-review Card 8.1: dashboard money leak removal",
+      "updated_at": 1780177092,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_2f39a5c5": {
       "assignee": "shadowkimiresearch",
@@ -208,7 +320,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix MVP prototype: add Etats feedback navigation",
-      "updated_at": 1779643653
+      "updated_at": 1779643653,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_2f431069": {
       "assignee": "default",
@@ -218,7 +332,9 @@
       "last_heartbeat_at": null,
       "status": "archived",
       "title": "Re-review Card 5.6 supplier UI inline fix",
-      "updated_at": 1779742465
+      "updated_at": 1779742465,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_2f604b33": {
       "assignee": "shadowdscoder",
@@ -228,7 +344,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.5B: deposit validation and legacy TVA review state",
-      "updated_at": 1779914310
+      "updated_at": 1779914310,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_3056c23c": {
       "assignee": "shadowdscoder",
@@ -238,7 +356,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.9: safe query gating and entity cleanup",
-      "updated_at": 1779991167
+      "updated_at": 1779991167,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_30e8f985": {
       "assignee": "default",
@@ -248,7 +368,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.5B: deposit validation and legacy TVA review state",
-      "updated_at": 1779914445
+      "updated_at": 1779914445,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_32813df6": {
       "assignee": "shadowdscoder",
@@ -258,7 +380,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.7: Moroccan payment schedule backend",
-      "updated_at": 1779979096
+      "updated_at": 1779979096,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_339fc7e3": {
       "assignee": "default",
@@ -268,7 +392,9 @@
       "last_heartbeat_at": null,
       "status": "archived",
       "title": "0.3 review: security + tenant foundation skeleton",
-      "updated_at": 1779630060
+      "updated_at": 1779630060,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_34b8a954": {
       "assignee": "default",
@@ -278,7 +404,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "0.5 re-review: blocked security fixes",
-      "updated_at": 1779631218
+      "updated_at": 1779631218,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_357a811e": {
       "assignee": "shadowdscoder",
@@ -288,7 +416,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 5.4 review blockers: Convex codegen typecheck + allocation ownership",
-      "updated_at": 1779719840
+      "updated_at": 1779719840,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_35e0115e": {
       "assignee": "shadowkimiresearch",
@@ -298,7 +428,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.9: Project Coûts lens",
-      "updated_at": 1779834069
+      "updated_at": 1779834069,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_378f2c47": {
+      "assignee": "shadowkimiresearch",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_378f2c47",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Fix Card 8.2: Dashboard UI safety and honesty blockers",
+      "updated_at": 1780194191,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_389df7cd": {
       "assignee": "default",
@@ -308,7 +452,9 @@
       "last_heartbeat_at": 1779735010,
       "status": "done",
       "title": "Review Card 5.5: Outgoing payment schema/functions",
-      "updated_at": 1779735092
+      "updated_at": 1779735092,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_39c2e2b3": {
       "assignee": "default",
@@ -318,7 +464,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 7.1: document metadata backend foundation",
-      "updated_at": 1780102061
+      "updated_at": 1780102061,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_3aa49deb": {
       "assignee": "default",
@@ -328,7 +476,9 @@
       "last_heartbeat_at": 1780055287,
       "status": "done",
       "title": "Review Card 6.10: Échéancier creation/edit UI wiring",
-      "updated_at": 1780055546
+      "updated_at": 1780055546,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_3ae4160b": {
       "assignee": "default",
@@ -338,7 +488,9 @@
       "last_heartbeat_at": 1779979190,
       "status": "done",
       "title": "Review Card 6.7: Moroccan payment schedule backend",
-      "updated_at": 1779979276
+      "updated_at": 1779979276,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_3b408681": {
       "assignee": "default",
@@ -348,7 +500,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 3.5: Project detail shell",
-      "updated_at": 1779649362
+      "updated_at": 1779649362,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_3bdd0a4e": {
       "assignee": "shadowkimiresearch",
@@ -358,7 +512,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.8: apostrophe entity leakage",
-      "updated_at": 1779984470
+      "updated_at": 1779984470,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_3bf5701e": {
       "assignee": "default",
@@ -368,7 +524,9 @@
       "last_heartbeat_at": 1779911039,
       "status": "done",
       "title": "Review Card 6.5B: Sale TVA backend persistence",
-      "updated_at": 1779911088
+      "updated_at": 1779911088,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_3c276458": {
       "assignee": "default",
@@ -378,7 +536,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 3.2: Project CRUD Convex functions",
-      "updated_at": 1779639336
+      "updated_at": 1779639336,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_3ce1928c": {
       "assignee": "default",
@@ -388,7 +548,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review doctrine update: TVA units and source costs",
-      "updated_at": 1779897579
+      "updated_at": 1779897579,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_3d72805d": {
       "assignee": "default",
@@ -398,7 +560,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 5.1: Global Inventaire route shell",
-      "updated_at": 1779710411
+      "updated_at": 1779710411,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_3e9a9a63": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_3e9a9a63",
+      "last_heartbeat_at": null,
+      "status": "blocked",
+      "title": "Final re-review Card 8.1: Dashboard aggregate finance safety",
+      "updated_at": 1780176266,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_3eaa580b": {
       "assignee": "shadowdscoder",
@@ -408,7 +584,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.9: Sale detail + échéancier read wiring",
-      "updated_at": 1779990142
+      "updated_at": 1779990142,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_402f09c6": {
       "assignee": "default",
@@ -418,7 +596,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 4.2: Apartment inventory UI",
-      "updated_at": 1779671560
+      "updated_at": 1779671560,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_409f38cc": {
       "assignee": "shadowkimiresearch",
@@ -428,7 +608,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.8: Paiements UI shell",
-      "updated_at": 1779831852
+      "updated_at": 1779831852,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_4353cec6": {
       "assignee": "default",
@@ -438,7 +620,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.12: Échéancier reconciliation view",
-      "updated_at": 1780080794
+      "updated_at": 1780080794,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_440c26fe": {
       "assignee": "default",
@@ -448,7 +632,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 3.3: Hierarchy CRUD Convex functions",
-      "updated_at": 1779646241
+      "updated_at": 1779646241,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_44d33c61": {
+      "assignee": "shadowdscoder",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_44d33c61",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Fix Card 8.1: Dashboard finance safety and codegen",
+      "updated_at": 1780175758,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_452812f8": {
       "assignee": "default",
@@ -458,7 +656,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 4.3: empty-state navigation",
-      "updated_at": 1779673769
+      "updated_at": 1779673769,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_45d884af": {
       "assignee": "shadowdscoder",
@@ -468,7 +668,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.4: Purchase/expense schema + allocation lines",
-      "updated_at": 1779717941
+      "updated_at": 1779717941,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_45e779ed": {
       "assignee": "shadowdscoder",
@@ -478,7 +680,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.2: project/apartment invariant",
-      "updated_at": 1779884896
+      "updated_at": 1779884896,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_465f83bd": {
       "assignee": "default",
@@ -488,7 +692,9 @@
       "last_heartbeat_at": 1779981623,
       "status": "done",
       "title": "Review Card 6.8: Échéancier UI",
-      "updated_at": 1779982474
+      "updated_at": 1779982474,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_46cc1b90": {
       "assignee": "default",
@@ -498,7 +704,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 5.6: Supplier/subcontractor UI shell",
-      "updated_at": 1779756003
+      "updated_at": 1779756003,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_47272525": {
       "assignee": "shadowkimiresearch",
@@ -508,7 +716,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 5.2: Resolve cost allocation doctrine contradictions",
-      "updated_at": 1779714252
+      "updated_at": 1779714252,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_47785e12": {
+      "assignee": "shadowkimiresearch",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_47785e12",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Fix Card 7.2R: remove fake Documents data",
+      "updated_at": 1780151119,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_47e5bc60": {
       "assignee": "shadowdscoder",
@@ -518,7 +740,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 7.1: document attachment safety blockers",
-      "updated_at": 1780104800
+      "updated_at": 1780104800,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_49083b92": {
+      "assignee": "shadowkimiresearch",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_49083b92",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Card 8.2: Dashboard UI wired to safe backend metrics",
+      "updated_at": 1780180890,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_49a0bd15": {
       "assignee": "default",
@@ -528,7 +764,9 @@
       "last_heartbeat_at": 1780064391,
       "status": "done",
       "title": "Re-review Card 6.11: payment readiness gates",
-      "updated_at": 1780064521
+      "updated_at": 1780064521,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_49b3ce55": {
       "assignee": "shadowdscoder",
@@ -538,7 +776,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "1.1 apply: French tenant app copy",
-      "updated_at": 1779633723
+      "updated_at": 1779633723,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_4ad349cc": {
       "assignee": "default",
@@ -548,7 +788,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "0.8 review: /platform and /app route surface skeleton",
-      "updated_at": 1779633120
+      "updated_at": 1779633120,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_4c281376": {
       "assignee": "default",
@@ -558,7 +800,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 4.1: generated apartments API",
-      "updated_at": 1779659782
+      "updated_at": 1779659782,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_4c71a879": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_4c71a879",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Re-review Card 8.2: Dashboard UI safety/honesty fixes",
+      "updated_at": 1780194372,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_4dea24b2": {
       "assignee": "shadowdscoder",
@@ -568,7 +824,21 @@
       "last_heartbeat_at": 1779633405,
       "status": "done",
       "title": "0.9 fix: route surface auth stubs fail closed",
-      "updated_at": 1779633413
+      "updated_at": 1779633413,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_4e0f567f": {
+      "assignee": "shadowdscoder",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_4e0f567f",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Fix Card 7.3: Delivery note status filtering correctness",
+      "updated_at": 1780160828,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_4e7c13f5": {
       "assignee": "default",
@@ -578,7 +848,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 7.0: product gap audit quality check",
-      "updated_at": 1780099353
+      "updated_at": 1780099353,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_4fb52ddf": {
       "assignee": "default",
@@ -588,7 +860,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Fix Card 6.2: project/apartment invariant",
-      "updated_at": 1779885048
+      "updated_at": 1779885048,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_5521dc56": {
       "assignee": "default",
@@ -598,7 +872,9 @@
       "last_heartbeat_at": 1779900219,
       "status": "done",
       "title": "Re-review Fix Card 6.5: TVA and reservation date fields",
-      "updated_at": 1779900481
+      "updated_at": 1779900481,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_563c092d": {
       "assignee": "default",
@@ -608,7 +884,9 @@
       "last_heartbeat_at": 1780056983,
       "status": "done",
       "title": "Re-review Card 6.10: safe errors + preview gate",
-      "updated_at": 1780057086
+      "updated_at": 1780057086,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_5736e6f8": {
       "assignee": "default",
@@ -618,7 +896,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 4.1: Apartment table functions",
-      "updated_at": 1779657661
+      "updated_at": 1779657661,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_57561aa7": {
       "assignee": "default",
@@ -628,7 +908,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "1.0 re-review: route surface auth stubs",
-      "updated_at": 1779633523
+      "updated_at": 1779633523,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_57a193be": {
       "assignee": "default",
@@ -638,7 +920,33 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.2: Sale/reservation schema/functions",
-      "updated_at": 1779884681
+      "updated_at": 1779884681,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_57d5313d": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_57d5313d",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Review Card 8.1: Dashboard aggregate queries",
+      "updated_at": 1780174657,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_58ac37ab": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_58ac37ab",
+      "last_heartbeat_at": null,
+      "status": "blocked",
+      "title": "Review Card 7.2R: Documents center route shell",
+      "updated_at": 1780149844,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_5d640a5a": {
       "assignee": "shadowdscoder",
@@ -648,7 +956,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.2: Sale/reservation schema/functions",
-      "updated_at": 1779883948
+      "updated_at": 1779883948,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_5d83ec2a": {
       "assignee": "default",
@@ -658,7 +968,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.3: Incoming payment schema/functions",
-      "updated_at": 1779886005
+      "updated_at": 1779886005,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_5dc72bc4": {
       "assignee": "shadowkimiresearch",
@@ -668,7 +980,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "0.6 design: /platform and /app route surface skeleton",
-      "updated_at": 1779632160
+      "updated_at": 1779632160,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_5e1935f2": {
       "assignee": "default",
@@ -678,7 +992,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 5.2: Company-wide cost allocation model spec",
-      "updated_at": 1779714004
+      "updated_at": 1779714004,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_5ef27e04": {
       "assignee": "default",
@@ -688,7 +1004,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 5.4: Purchase/expense schema + allocation lines",
-      "updated_at": 1779730833
+      "updated_at": 1779730833,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_5f00ee74": {
       "assignee": "shadowdscoder",
@@ -698,7 +1016,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.9: provider-safe sale detail queries",
-      "updated_at": 1779993492
+      "updated_at": 1779993492,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_60d27e72": {
       "assignee": "shadowdscoder",
@@ -708,7 +1028,21 @@
       "last_heartbeat_at": null,
       "status": "archived",
       "title": "0.2 implement: security + tenant foundation skeleton",
-      "updated_at": 1779630060
+      "updated_at": 1779630060,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_615db3bc": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_615db3bc",
+      "last_heartbeat_at": null,
+      "status": "blocked",
+      "title": "Review Card 7.4: Bons de livraison route shell",
+      "updated_at": 1780171201,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_63c83707": {
       "assignee": "default",
@@ -718,7 +1052,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review MVP prototype V2: modern compact UI direction",
-      "updated_at": 1779644653
+      "updated_at": 1779644653,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_6439b7fe": {
       "assignee": "shadowkimiresearch",
@@ -728,7 +1064,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.12: Échéancier reconciliation view",
-      "updated_at": 1780080655
+      "updated_at": 1780080655,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_64fdb47b": {
       "assignee": "shadowdscoder",
@@ -738,7 +1076,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 7.1: Document metadata foundation backend",
-      "updated_at": 1780101975
+      "updated_at": 1780101975,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_65e639b6": {
+      "assignee": "shadowdscoder",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_65e639b6",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Fix Card 7.3: Delivery notes backend review blockers",
+      "updated_at": 1780158995,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_663f82b6": {
       "assignee": "default",
@@ -748,7 +1100,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review fix Card 3.2: project code duplicate checks",
-      "updated_at": 1779642449
+      "updated_at": 1779642449,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_67ccc789": {
       "assignee": "default",
@@ -758,7 +1112,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.9: provider-safe queries",
-      "updated_at": 1779993852
+      "updated_at": 1779993852,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_69a0dd11": {
       "assignee": "shadowdscoder",
@@ -768,7 +1124,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 4.1: make Convex generated API codegen-clean",
-      "updated_at": 1779661436
+      "updated_at": 1779661436,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_6a2c0b50": {
       "assignee": "shadowdscoder",
@@ -778,7 +1136,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "0.4 fix: blocked security review findings",
-      "updated_at": 1779631126
+      "updated_at": 1779631126,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_6cf08b7d": {
       "assignee": "shadowdscoder",
@@ -788,7 +1148,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 3.1: project hierarchy Convex schema",
-      "updated_at": 1779637708
+      "updated_at": 1779637708,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_738f463f": {
       "assignee": "shadowkimiresearch",
@@ -798,7 +1160,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.1: Add global Inventaire route shell for /app/apartments",
-      "updated_at": 1779710175
+      "updated_at": 1779710175,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_78451e89": {
       "assignee": "shadowdscoder",
@@ -808,7 +1172,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.6B: Moroccan incoming payment balance enforcement",
-      "updated_at": 1779968507
+      "updated_at": 1779968507,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_7c271e83": {
       "assignee": "shadowdscoder",
@@ -818,7 +1184,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.1: Client schema/functions",
-      "updated_at": 1779879932
+      "updated_at": 1779879932,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_803e9102": {
       "assignee": "shadowdscoder",
@@ -828,7 +1196,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 3.1: tenant-safe hierarchy indexes",
-      "updated_at": 1779638493
+      "updated_at": 1779638493,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_81ca1a26": {
       "assignee": "default",
@@ -838,7 +1208,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.6B: no-op update ordering",
-      "updated_at": 1779970612
+      "updated_at": 1779970612,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_820e96f1": {
       "assignee": "shadowkimiresearch",
@@ -848,7 +1220,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 3.6: Hierarchy builder screen",
-      "updated_at": 1779653502
+      "updated_at": 1779653502,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_8297fa1a": {
       "assignee": "default",
@@ -858,7 +1232,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 5.6 supplier UI inline fix unblocked",
-      "updated_at": 1779742790
+      "updated_at": 1779742790,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_8357d3c5": {
       "assignee": "default",
@@ -868,7 +1244,21 @@
       "last_heartbeat_at": 1779673322,
       "status": "done",
       "title": "Review Card 4.3: Apartment detail screen",
-      "updated_at": 1779673384
+      "updated_at": 1779673384,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_851f64db": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_851f64db",
+      "last_heartbeat_at": null,
+      "status": "todo",
+      "title": "Review Card 7.2: Documents center route shell",
+      "updated_at": 1780147838,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_85ef5022": {
       "assignee": "shadowdscoder",
@@ -878,7 +1268,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.3: Incoming payment schema/functions",
-      "updated_at": 1779885786
+      "updated_at": 1779885786,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_8a5ee399": {
       "assignee": "shadowkimiresearch",
@@ -888,7 +1280,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.12B: overdue underpaid status derivation",
-      "updated_at": 1780083656
+      "updated_at": 1780083656,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_8bf01928": {
       "assignee": "default",
@@ -898,7 +1292,9 @@
       "last_heartbeat_at": 1779887927,
       "status": "done",
       "title": "Re-review Fix Card 6.3: incoming payment validation",
-      "updated_at": 1779887975
+      "updated_at": 1779887975,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_925c19a4": {
       "assignee": "default",
@@ -908,7 +1304,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 5.7: Purchase UI shell",
-      "updated_at": 1779824600
+      "updated_at": 1779824600,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_992005cf": {
       "assignee": "default",
@@ -918,7 +1316,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.12B: overdue underpaid status derivation",
-      "updated_at": 1780083734
+      "updated_at": 1780083734,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_999565f5": {
+      "assignee": "shadowdscoder",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_999565f5",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Card 7.3: Bons de livraison backend foundation",
+      "updated_at": 1780156705,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_9e3059d9": {
       "assignee": "shadowkimiresearch",
@@ -928,7 +1340,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.8: Échéancier UI for Moroccan payment schedules",
-      "updated_at": 1779981482
+      "updated_at": 1779981482,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_9f623891": {
       "assignee": "shadowkimiresearch",
@@ -938,7 +1352,9 @@
       "last_heartbeat_at": null,
       "status": "archived",
       "title": "Fix Card 5.6: remove Documents placeholder",
-      "updated_at": 1779741711
+      "updated_at": 1779741711,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_a07d60b2": {
       "assignee": "default",
@@ -948,7 +1364,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.6: Incoming payment form UI",
-      "updated_at": 1779918317
+      "updated_at": 1779918317,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_a085cc8a": {
       "assignee": "shadowdscoder",
@@ -958,7 +1376,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.10: Échéancier creation/edit UI wiring",
-      "updated_at": 1780055196
+      "updated_at": 1780055196,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_a0e00754": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_a0e00754",
+      "last_heartbeat_at": null,
+      "status": "blocked",
+      "title": "Re-review Card 8.1: Dashboard aggregate queries",
+      "updated_at": 1780175759,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_a0f7437c": {
       "assignee": "shadowdscoder",
@@ -968,7 +1400,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.10: safe mutation errors + preview re-probe",
-      "updated_at": 1780056899
+      "updated_at": 1780056899,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_a1ea6e43": {
       "assignee": "default",
@@ -978,7 +1412,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review fix Card 3.3: hierarchy typecheck",
-      "updated_at": 1779646576
+      "updated_at": 1779646576,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_a37ca50f": {
       "assignee": "shadowdscoder",
@@ -988,7 +1424,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.6B: no-op update enforcement ordering",
-      "updated_at": 1779970465
+      "updated_at": 1779970465,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_a77978cb": {
       "assignee": "default",
@@ -998,7 +1436,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "0.3 review: security + tenant foundation skeleton",
-      "updated_at": 1779630842
+      "updated_at": 1779630842,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_a8c52ace": {
       "assignee": "default",
@@ -1008,7 +1448,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 7.1: document attachment safety fixes",
-      "updated_at": 1780104917
+      "updated_at": 1780104917,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_a996e0e3": {
       "assignee": "default",
@@ -1018,7 +1460,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 3.6: Hierarchy builder screen",
-      "updated_at": 1779653888
+      "updated_at": 1779653888,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_a998dc20": {
       "assignee": "default",
@@ -1028,7 +1472,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.11: Encaissement schedule-line link",
-      "updated_at": 1780063146
+      "updated_at": 1780063146,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_ac15097c": {
       "assignee": "shadowkimiresearch",
@@ -1038,7 +1484,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.6: Incoming payment form UI",
-      "updated_at": 1779918084
+      "updated_at": 1779918084,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_ae421bed": {
       "assignee": "shadowdscoder",
@@ -1048,7 +1496,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 3.3: hierarchy apartment status typecheck",
-      "updated_at": 1779646444
+      "updated_at": 1779646444,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_af0e3060": {
       "assignee": "default",
@@ -1058,7 +1508,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.6B: incoming payment balance enforcement",
-      "updated_at": 1779968708
+      "updated_at": 1779968708,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_af924fdd": {
       "assignee": "shadowdscoder",
@@ -1068,7 +1520,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 3.2: normalize project code duplicate checks",
-      "updated_at": 1779642329
+      "updated_at": 1779642329,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_b010aeb3": {
       "assignee": "default",
@@ -1078,7 +1532,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Recover Card 6.4: Client list/profile UI",
-      "updated_at": 1779892106
+      "updated_at": 1779892106,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_b186d086": {
       "assignee": "shadowkimiresearch",
@@ -1088,7 +1544,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.0: Global Inventaire navigation + project-lens doctrine",
-      "updated_at": 1779708432
+      "updated_at": 1779708432,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_b2bdcc46": {
       "assignee": "default",
@@ -1098,7 +1556,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 7.1C: deleted document get exclusion",
-      "updated_at": 1780105049
+      "updated_at": 1780105049,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_b2e41a0a": {
+      "assignee": "shadowdscoder",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_b2e41a0a",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Fix Card 8.1: remove apartment all-time price total leak",
+      "updated_at": 1780176997,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_b3bacf29": {
       "assignee": "default",
@@ -1108,7 +1580,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review fix MVP prototype: Etats feedback navigation",
-      "updated_at": 1779644046
+      "updated_at": 1779644046,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_b47e26c3": {
       "assignee": "default",
@@ -1118,7 +1592,9 @@
       "last_heartbeat_at": 1779708482,
       "status": "done",
       "title": "Review Card 5.0: Global Inventaire navigation + project-lens doctrine",
-      "updated_at": 1779708755
+      "updated_at": 1779708755,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_b4bba270": {
       "assignee": "shadowdscoder",
@@ -1128,7 +1604,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.9B: remove Devise field entirely",
-      "updated_at": 1780022889
+      "updated_at": 1780022889,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_b543e7b7": {
       "assignee": "default",
@@ -1138,7 +1616,9 @@
       "last_heartbeat_at": null,
       "status": "todo",
       "title": "Review Card 6.4: Client list/profile UI",
-      "updated_at": 1779889119
+      "updated_at": 1779889119,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_b6b1592a": {
       "assignee": "shadowdscoder",
@@ -1148,7 +1628,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.11: payment readiness gates",
-      "updated_at": 1780064252
+      "updated_at": 1780064252,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_baa66210": {
       "assignee": "shadowkimiresearch",
@@ -1158,7 +1640,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.6: payment empty-state action",
-      "updated_at": 1779933050
+      "updated_at": 1779933050,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_bcb9d94a": {
       "assignee": "default",
@@ -1168,7 +1652,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 3.1: tenant-safe hierarchy indexes",
-      "updated_at": 1779638603
+      "updated_at": 1779638603,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_bcd8a91d": {
       "assignee": "shadowdscoder",
@@ -1178,7 +1664,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 5.4 second blocker: cost allocation ctx typing",
-      "updated_at": 1779722769
+      "updated_at": 1779722769,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_bfeca194": {
       "assignee": "shadowkimiresearch",
@@ -1188,7 +1676,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Recover Card 6.4: Client list/profile UI after provider overload",
-      "updated_at": 1779891726
+      "updated_at": 1779891726,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_c01fa0f1": {
       "assignee": "default",
@@ -1198,7 +1688,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 3.1: project hierarchy Convex schema",
-      "updated_at": 1779637824
+      "updated_at": 1779637824,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_c0678a6a": {
       "assignee": "shadowdscoder",
@@ -1208,7 +1700,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "0.1 baseline scan: ImmoPilot repo + security doctrine",
-      "updated_at": 1779630304
+      "updated_at": 1779630304,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_c10528ae": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_c10528ae",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Review Card 8.2: Dashboard UI wired to safe backend metrics",
+      "updated_at": 1780181062,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_c13554df": {
       "assignee": "default",
@@ -1218,7 +1724,21 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 5.4 purchase allocation fixes",
-      "updated_at": 1779720005
+      "updated_at": 1779720005,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_c33916c6": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_c33916c6",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Final re-review Card 7.3: Delivery notes backend",
+      "updated_at": 1780160951,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_c486def1": {
       "assignee": "shadowdscoder",
@@ -1228,7 +1748,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.5B: Sale TVA backend persistence",
-      "updated_at": 1779910963
+      "updated_at": 1779910963,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_c635b6b2": {
       "assignee": "default",
@@ -1238,7 +1760,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.6: payment empty-state action",
-      "updated_at": 1779933175
+      "updated_at": 1779933175,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_c71810e3": {
       "assignee": "default",
@@ -1248,7 +1772,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 3.4: Project list screen + compact app navigation",
-      "updated_at": 1779647676
+      "updated_at": 1779647676,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_c8d24abc": {
       "assignee": "default",
@@ -1258,7 +1784,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.9: Sale detail + échéancier read wiring",
-      "updated_at": 1779990732
+      "updated_at": 1779990732,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_c9def840": {
       "assignee": "default",
@@ -1268,7 +1796,45 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.8: apostrophe entity fix",
-      "updated_at": 1779984744
+      "updated_at": 1779984744,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_ca39aeba": {
+      "assignee": "shadowkimiresearch",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_ca39aeba",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Card 7.2R: Documents center route shell",
+      "updated_at": 1780149844,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_cd614a49": {
+      "assignee": "default",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_cd614a49",
+      "last_heartbeat_at": 1780159045,
+      "status": "blocked",
+      "title": "Re-review Card 7.3: Delivery notes backend after fixes",
+      "updated_at": 1780159045,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_cf247ba9": {
+      "assignee": "shadowdscoder",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_cf247ba9",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Card 8.1: Dashboard aggregate queries",
+      "updated_at": 1780174548,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_cfcc0591": {
       "assignee": "shadowdscoder",
@@ -1278,7 +1844,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.3: incoming payment validation",
-      "updated_at": 1779887857
+      "updated_at": 1779887857,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_d1982a0b": {
       "assignee": "shadowdscoder",
@@ -1288,7 +1856,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.3: Supplier/subcontractor schema/functions",
-      "updated_at": 1779715713
+      "updated_at": 1779715713,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_d31cb22f": {
       "assignee": "shadowdscoder",
@@ -1298,7 +1868,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.5B: existing deposit vs recomputed total",
-      "updated_at": 1779915572
+      "updated_at": 1779915572,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_d4707746": {
       "assignee": "default",
@@ -1308,7 +1880,9 @@
       "last_heartbeat_at": 1779969581,
       "status": "done",
       "title": "Re-review Card 6.6B: effective amount balance enforcement",
-      "updated_at": 1779969661
+      "updated_at": 1779969661,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_d7720e80": {
       "assignee": "default",
@@ -1318,7 +1892,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.5: Sale/reservation form UI",
-      "updated_at": 1779898807
+      "updated_at": 1779898807,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_db7aada7": {
       "assignee": "shadowkimiresearch",
@@ -1328,7 +1904,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "MVP prototype: clickable ImmoPilot product walkthrough",
-      "updated_at": 1779639880
+      "updated_at": 1779639880,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_dcfd5d2d": {
       "assignee": "shadowdscoder",
@@ -1338,7 +1916,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 4.1: include generated Convex apartments API",
-      "updated_at": 1779659591
+      "updated_at": 1779659591,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_df35396d": {
       "assignee": "default",
@@ -1348,7 +1928,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 5.2: cost allocation doctrine fixes",
-      "updated_at": 1779714375
+      "updated_at": 1779714375,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_e2f01f1b": {
       "assignee": "shadowdscoder",
@@ -1358,7 +1940,9 @@
       "last_heartbeat_at": null,
       "status": "archived",
       "title": "0.1 baseline scan: ImmoPilot repo + security doctrine",
-      "updated_at": 1779630060
+      "updated_at": 1779630060,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_e7900c33": {
       "assignee": "default",
@@ -1368,7 +1952,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.12: status signal + French labels",
-      "updated_at": 1780082625
+      "updated_at": 1780082625,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_e7be7350": {
       "assignee": "shadowkimiresearch",
@@ -1378,7 +1964,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 4.3: apartment detail empty-state navigation",
-      "updated_at": 1779673615
+      "updated_at": 1779673615,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_e80d065f": {
       "assignee": "default",
@@ -1388,7 +1976,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 6.1: Client schema/functions",
-      "updated_at": 1779881047
+      "updated_at": 1779881047,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_ec38063f": {
       "assignee": "shadowkimiresearch",
@@ -1398,7 +1988,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 3.6: hierarchy placeholder count honesty",
-      "updated_at": 1779654658
+      "updated_at": 1779654658,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_ed2211fd": {
       "assignee": "default",
@@ -1408,7 +2000,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 7.0: Read-only product gap audit against doctrine",
-      "updated_at": 1780099290
+      "updated_at": 1780099290,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_ef9db04e": {
       "assignee": "shadowkimiresearch",
@@ -1418,7 +2012,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 3.5: Project detail shell",
-      "updated_at": 1779649078
+      "updated_at": 1779649078,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_f0d8cd7d": {
       "assignee": "default",
@@ -1428,7 +2024,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 5.8: Paiements UI shell",
-      "updated_at": 1779832046
+      "updated_at": 1779832046,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_f1fc4c0d": {
       "assignee": "shadowkimiresearch",
@@ -1438,7 +2036,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.12: reconciliation status + French labels",
-      "updated_at": 1780082532
+      "updated_at": 1780082532,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_f2ddb22a": {
       "assignee": "default",
@@ -1448,7 +2048,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Re-review Card 6.9B: Devise field removed",
-      "updated_at": 1780023195
+      "updated_at": 1780023195,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_f3a5b923": {
       "assignee": "shadowkimiresearch",
@@ -1458,7 +2060,33 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 4.2: Apartment inventory UI",
-      "updated_at": 1779671301
+      "updated_at": 1779671301,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_f5b9a42e": {
+      "assignee": "shadowkimiresearch",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_f5b9a42e",
+      "last_heartbeat_at": null,
+      "status": "blocked",
+      "title": "Card 7.2: Documents center route shell",
+      "updated_at": 1780147838,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
+    },
+    "immopilot:t_f5bcc2fa": {
+      "assignee": "shadowkimiresearch",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_f5bcc2fa",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Card 7.4: Bons de livraison route shell",
+      "updated_at": 1780171200,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_f624e2c8": {
       "assignee": "shadowdscoder",
@@ -1468,7 +2096,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Fix Card 6.6B: enforce effective payment amount on update",
-      "updated_at": 1779969466
+      "updated_at": 1779969466,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_f6b85d1e": {
       "assignee": "shadowdscoder",
@@ -1478,7 +2108,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 4.1: Apartment table functions",
-      "updated_at": 1779657584
+      "updated_at": 1779657584,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_f76baa55": {
       "assignee": "default",
@@ -1488,7 +2120,9 @@
       "last_heartbeat_at": null,
       "status": "archived",
       "title": "Re-review Card 5.7 placeholder data consistency fix",
-      "updated_at": 1779824289
+      "updated_at": 1779824289,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "immopilot:t_f7d977c7": {
       "assignee": "shadowdscoder",
@@ -1498,7 +2132,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "0.7 implement: /platform and /app route surface skeleton",
-      "updated_at": 1779632977
+      "updated_at": 1779632977,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_f84379f7": {
       "assignee": "default",
@@ -1508,7 +2144,21 @@
       "last_heartbeat_at": 1779654770,
       "status": "done",
       "title": "Re-review Card 3.6: hierarchy placeholder count honesty",
-      "updated_at": 1779654876
+      "updated_at": 1779654876,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
+    },
+    "immopilot:t_f8ce7795": {
+      "assignee": "shadowdscoder",
+      "board": "immopilot",
+      "current_run_id": null,
+      "id": "t_f8ce7795",
+      "last_heartbeat_at": null,
+      "status": "done",
+      "title": "Fix Card 8.1: remove unbounded financial byStatus totals",
+      "updated_at": 1780176265,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_f8cfee1f": {
       "assignee": "shadowkimiresearch",
@@ -1518,7 +2168,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 5.2: Company-wide cost allocation model spec",
-      "updated_at": 1779712648
+      "updated_at": 1779712648,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_fa42abcf": {
       "assignee": "shadowdscoder",
@@ -1528,7 +2180,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 3.3: Hierarchy CRUD Convex functions",
-      "updated_at": 1779646140
+      "updated_at": 1779646140,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_fb2cb2e4": {
       "assignee": "shadowdscoder",
@@ -1538,7 +2192,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 6.11: Link encaissements to échéancier lines",
-      "updated_at": 1780062890
+      "updated_at": 1780062890,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_fbb0078d": {
       "assignee": "shadowdscoder",
@@ -1548,7 +2204,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Card 3.2: Project CRUD Convex functions",
-      "updated_at": 1779639259
+      "updated_at": 1779639259,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "immopilot:t_fcc0cd6c": {
       "assignee": "default",
@@ -1558,7 +2216,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "Review Card 5.9: Project Coûts lens",
-      "updated_at": 1779834321
+      "updated_at": 1779834321,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "memory-curator:t_05d3dd69": {
       "assignee": "memoryscoutds",
@@ -1568,7 +2228,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "iterate: fix curator raid timer from review feedback",
-      "updated_at": 1779467978
+      "updated_at": 1779467978,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_0d9410ef": {
       "assignee": "shadowdscoder",
@@ -1578,7 +2240,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "cron: remove 14:00 Codex quota refresh behavior",
-      "updated_at": 1779539095
+      "updated_at": 1779539095,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_12734b35": {
       "assignee": "default",
@@ -1588,7 +2252,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "ops: repair duplicate Codex account label metadata",
-      "updated_at": 1779536830
+      "updated_at": 1779536830,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "memory-curator:t_211b790d": {
       "assignee": "memoryreviewds",
@@ -1598,7 +2264,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: validate Daily Holographic Memory Curator raid timer",
-      "updated_at": 1779467889
+      "updated_at": 1779467889,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_2703a379": {
       "assignee": "memoryscoutds",
@@ -1608,7 +2276,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "scout: design daily Holographic session memory curator",
-      "updated_at": 1779466878
+      "updated_at": 1779466878,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_374a1741": {
       "assignee": "shadowdscoder",
@@ -1618,7 +2288,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "fix: custom names review blockers",
-      "updated_at": 1779548214
+      "updated_at": 1779548214,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_87c86add": {
       "assignee": "default",
@@ -1628,7 +2300,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: 09:00-only Codex warmup script change",
-      "updated_at": 1779539380
+      "updated_at": 1779539380,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "memory-curator:t_8f71ac8b": {
       "assignee": "default",
@@ -1638,7 +2312,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: custom names fix iteration",
-      "updated_at": 1779548511
+      "updated_at": 1779548511,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "memory-curator:t_ac7ef2bc": {
       "assignee": "memoryscoutds",
@@ -1648,7 +2324,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "implement: create Daily Holographic Memory Curator raid timer",
-      "updated_at": 1779467362
+      "updated_at": 1779467362,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_c09c41f2": {
       "assignee": "shadowdscoder",
@@ -1658,7 +2336,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "fix: enforce kanban worker terminal protocol",
-      "updated_at": 1779548446
+      "updated_at": 1779548446,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_d6b43902": {
       "assignee": "shadowdscoder",
@@ -1668,7 +2348,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "implement: custom names for ChatGPT/Codex accounts",
-      "updated_at": 1779547358
+      "updated_at": 1779547358,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_d8f46b65": {
       "assignee": "memoryreviewds",
@@ -1678,7 +2360,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "final-review: certify memory curator raid timer",
-      "updated_at": 1779468162
+      "updated_at": 1779468162,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "memory-curator:t_dd13a1d0": {
       "assignee": "default",
@@ -1688,7 +2372,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "ops: restart Shadow Realm dashboard after Codex fix",
-      "updated_at": 1779536920
+      "updated_at": 1779536920,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "memory-curator:t_eda88290": {
       "assignee": "default",
@@ -1698,7 +2384,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: custom names for ChatGPT/Codex accounts",
-      "updated_at": 1779547811
+      "updated_at": 1779547811,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "model-routing-research:t_227442b1": {
       "assignee": "shadowkimiresearch",
@@ -1708,7 +2396,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "research: OpenCode Go model routing codex",
-      "updated_at": 1779478291
+      "updated_at": 1779478291,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "model-routing-research:t_23e990e8": {
       "assignee": "shadowkimiresearch",
@@ -1718,7 +2408,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "fix: model routing codex review blockers",
-      "updated_at": 1779478863
+      "updated_at": 1779478863,
+      "worker_model": "kimi-k2.6",
+      "worker_provider": "opencode-go"
     },
     "model-routing-research:t_55ea854e": {
       "assignee": "default",
@@ -1728,7 +2420,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: OpenCode Go routing codex update",
-      "updated_at": 1779478641
+      "updated_at": 1779478641,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "model-routing-research:t_ba7364a2": {
       "assignee": "default",
@@ -1738,7 +2432,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: model routing codex blocker fixes",
-      "updated_at": 1779478936
+      "updated_at": 1779478936,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "quota-rotation:t_1ae97c5e": {
       "assignee": "default",
@@ -1748,7 +2444,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: weekly quota hard blocker for Codex auto-switch",
-      "updated_at": 1779484622
+      "updated_at": 1779484622,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "quota-rotation:t_3a01fc2d": {
       "assignee": "default",
@@ -1758,7 +2456,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "design: quota rotation + warmup plan",
-      "updated_at": 1779475183
+      "updated_at": 1779475183,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "quota-rotation:t_3d9c2a49": {
       "assignee": "shadowdscoder",
@@ -1768,7 +2468,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "fix: weekly quota hard blocker for Codex auto-switch",
-      "updated_at": 1779484242
+      "updated_at": 1779484242,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "quota-rotation:t_528a6ce7": {
       "assignee": "default",
@@ -1778,7 +2480,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: quota rotation blocker fixes",
-      "updated_at": 1779480368
+      "updated_at": 1779480368,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "quota-rotation:t_63768e1d": {
       "assignee": "default",
@@ -1788,7 +2492,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "blocked: create Morocco-time quota warmup Raid Timer",
-      "updated_at": 1779482873
+      "updated_at": 1779482873,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "quota-rotation:t_6b2a50a8": {
       "assignee": "default",
@@ -1798,7 +2504,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: unused Codex account 30m quota refresh backoff",
-      "updated_at": 1779495941
+      "updated_at": 1779495941,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "quota-rotation:t_79efbe74": {
       "assignee": "memoryscoutds",
@@ -1808,7 +2516,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "recon: map quota/account selection paths",
-      "updated_at": 1779474789
+      "updated_at": 1779474789,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "quota-rotation:t_7b10d53d": {
       "assignee": "shadowdscoder",
@@ -1818,7 +2528,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "fix: refresh selected depleted Codex account quota",
-      "updated_at": 1779483168
+      "updated_at": 1779483168,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "quota-rotation:t_911be95c": {
       "assignee": "default",
@@ -1828,7 +2540,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: selected depleted Codex quota refresh fix",
-      "updated_at": 1779483351
+      "updated_at": 1779483351,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "quota-rotation:t_c964dc18": {
       "assignee": "shadowdscoder",
@@ -1838,7 +2552,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "fix: quota rotation review blockers",
-      "updated_at": 1779480191
+      "updated_at": 1779480191,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "quota-rotation:t_d8ee5536": {
       "assignee": "default",
@@ -1848,7 +2564,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "review: quota rotation implementation",
-      "updated_at": 1779478208
+      "updated_at": 1779478208,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     },
     "quota-rotation:t_d9e3f82c": {
       "assignee": "shadowdscoder",
@@ -1858,7 +2576,9 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "fix: unused Codex account 30m quota refresh backoff",
-      "updated_at": 1779495770
+      "updated_at": 1779495770,
+      "worker_model": "deepseek-v4-flash",
+      "worker_provider": "opencode-go"
     },
     "quota-rotation:t_f41e45b0": {
       "assignee": "default",
@@ -1868,9 +2588,11 @@
       "last_heartbeat_at": null,
       "status": "done",
       "title": "blocked: implement quota rotation after approval",
-      "updated_at": 1779477585
+      "updated_at": 1779477585,
+      "worker_model": "gpt-5.5",
+      "worker_provider": "openai-codex"
     }
   },
-  "updated_at": "2026-05-30T03:00:58.548259+00:00",
+  "updated_at": "2026-05-31T03:00:27.551620+00:00",
   "version": 1
 }

@@ -1,4 +1,4 @@
-## main...origin/main [ahead 1, behind 849]
+## main...origin/main [ahead 1, behind 949]
  M agent/agent_runtime_helpers.py
  A agent/codex_quota.py
  M agent/credential_pool.py
@@ -14,6 +14,7 @@
  M tests/agent/test_credential_pool.py
  M tests/cron/test_jobs.py
  M tests/cron/test_scheduler.py
+ M tests/gateway/test_kanban_notifier.py
  M tests/gateway/test_runtime_footer.py
  A tests/hermes_cli/test_codex_account_selection_dashboard.py
  A tests/hermes_cli/test_dashboard_codex_labels.py
